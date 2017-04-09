@@ -15,6 +15,7 @@
 void draw_darken_pixel(Screen *screen, int x, int y, float step);
 void draw_darken_pixel_bw(Screen *screen, int x, int y, float step);
 void draw_lighten_pixel(Screen *screen, int x, int y, float step);
+void draw_lighten_pixel_bw(Screen *screen, int x, int y, float step);
 void draw_set_pixel(Screen *screen, int x, int y, RGBColor color);
 RGBColor draw_get_pixel(Screen *screen, int x, int y);
 void draw_rectangle(Screen *screen, RectangleI rect, RGBColor color);

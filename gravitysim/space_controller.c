@@ -9,6 +9,9 @@
 #include "space_controller.h"
 #include "build_config.h"
 
+/**
+ * init a space controller with specified config
+ */
 SpaceController* spacecontroller_init(SimulationConfig config) {
     SpaceController *controller = (SpaceController*)malloc(sizeof(SpaceController));
     if (!controller) {
@@ -29,6 +32,9 @@ SpaceController* spacecontroller_init(SimulationConfig config) {
     return controller;
 }
 
+/**
+ * update the SpaceController with specified time interval dt
+ */
 void spacecontroller_update(SpaceController *c, GS_FLOAT dt) {
     static GS_FLOAT last_update_time = 0.0;
     spacemodel_update(c->model, dt);
@@ -47,6 +53,9 @@ void spacecontroller_update(SpaceController *c, GS_FLOAT dt) {
     }
 }
 
+/**
+ * dealloc SpaceController
+ */
 void spacecontroller_dealloc(SpaceController *controller) {
     spaceview_dealloc(controller->view);
     spacemodel_dealloc(controller->model);

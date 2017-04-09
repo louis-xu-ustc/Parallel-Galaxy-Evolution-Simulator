@@ -27,16 +27,18 @@
 #define G_CONST 10.5
 #define SOFT_CONST 1.0
 
+// 1 - black background and white foreground 
+// 0 - white background and black foreground
+#define BG_BLACK_FG_WHITE 1 
 #define DRAW_SOLID  0
-#define DRAW_BIG    0
-#define DRAW_DARKEN 1
-#define DARKEN_STEP 0.3
-
-#define DRAW_QUADS   0
+#define DRAW_BIG    1
+#define DRAW_DARKEN_OR_LIGHTEN 0 
+#define DARKEN_OR_LIGHTEN_STEP 0.3
+#define DRAW_QUADS   1
 #define PRINT_FPS    0
 
 #define MAX_SPEED 10.00
 #define MAX_MASS 10.0
-#define SD_TRESHOLD 1.0
+#define SD_TRESHOLD 0.5
 
 #endif

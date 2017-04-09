@@ -10,6 +10,9 @@
 #include "object.h"
 #include "build_config.h"
 
+/**
+ * calculating the sum of two objects, weighted by mass, return the new object
+ */
 Object object_add(Object a, Object b) {
     GS_FLOAT mass = a.mass + b.mass;
     Point2D position = point2d_add(point2d_multiply(a.position, a.mass / mass),
@@ -19,6 +22,9 @@ Object object_add(Object a, Object b) {
     return object_make(position, speed, mass);
 }
 
+/**
+ * make an object with the specified position, speed and mass
+ */
 Object object_make(Point2D position, Point2D speed, GS_FLOAT mass) {
     Object obj;
     obj.position = position;
@@ -27,6 +33,9 @@ Object object_make(Point2D position, Point2D speed, GS_FLOAT mass) {
     return obj;
 }
 
+/**
+ * randomly make an object with specified bounds, max_speed and max_mass
+ */
 Object object_make_random(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_mass) {
     Point2D position = point2d_make_random(bounds);
     Point2D speed;
@@ -36,6 +45,9 @@ Object object_make_random(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_ma
     return object_make(position, speed, mass);
 }
 
+/**
+ * randomly make an obejct with specified bounds, max_speed and max_mass in an ellipse
+ */
 Object object_make_random_in_ellipse(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_mass) {
     Point2D position = point2d_make_random_in_circle(bounds);
     Point2D speed;
@@ -45,10 +57,16 @@ Object object_make_random_in_ellipse(RectangleD bounds, GS_FLOAT max_speed, GS_F
     return object_make(position, speed, mass);
 }
 
+/**
+ * object with zero position and mass
+ */
 Object object_zero() {
     return object_make(point2d_zero(), point2d_zero(), 0.0);
 }
 
+/**
+ * calculate the force between object a and b
+ */
 Point2D object_calculate_force(Object a, Object b) {
     Point2D dr;
     GS_FLOAT r, f;
@@ -58,6 +76,9 @@ Point2D object_calculate_force(Object a, Object b) {
     return point2d_multiply(dr, f/r);
 }
 
+/**
+ * object's position update with a specified dt
+ */
 void object_update_position(Object *object, GS_FLOAT dt) {
     Point2D dr = point2d_multiply(object->speed, dt);
     object->position = point2d_add(object->position, dr);

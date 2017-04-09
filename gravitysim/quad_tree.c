@@ -13,6 +13,9 @@
 
 static void quadtree_add_object(QuadTree *tree, Object *object);
 
+/**
+ * Init a QuadTree with the specified bounds
+ */
 QuadTree* quadtree_init(RectangleD bounds) {
     QuadTree *tree = (QuadTree*)malloc(sizeof(QuadTree));
     if (!tree) {
@@ -28,6 +31,9 @@ QuadTree* quadtree_init(RectangleD bounds) {
     return tree;
 }
 
+/**
+ * recursively find the position for an object in a QuadTree, and add the object to it
+ */
 void quadtree_add_object(QuadTree *tree, Object *object) {
     int q;
     if (!tree) {
@@ -66,6 +72,9 @@ void quadtree_add_object(QuadTree *tree, Object *object) {
     }
 }
 
+/**
+ * update the force all the objects within a QuadTree (except itself) on the specified object
+ */
 Point2D quadtree_get_force_on_object(QuadTree *tree, Object *object) {
     GS_FLOAT s, d;
     Point2D dr, result = point2d_zero();    
@@ -92,6 +101,9 @@ Point2D quadtree_get_force_on_object(QuadTree *tree, Object *object) {
     return result;
 }
 
+/**
+ * update speed for each object in the QuadTree
+ */
 void quadtree_apply_to_objects(QuadTree *tree, ObjectArray *objects, GS_FLOAT dt) {
     size_t i;
     Object *object;
@@ -103,6 +115,9 @@ void quadtree_apply_to_objects(QuadTree *tree, ObjectArray *objects, GS_FLOAT dt
     }    
 }
 
+/**
+ * add all the obejcts that's in the bounds of the tree in the QuadTree
+ */
 void quadtree_add_objects(QuadTree *tree, ObjectArray *objects) {
     size_t i;
     for (i = 0; i < objects->len; i++) {
@@ -112,6 +127,9 @@ void quadtree_add_objects(QuadTree *tree, ObjectArray *objects) {
     }
 }
 
+/**
+ * recursively dealloc a QuadTree
+ */
 void quadtree_dealloc(QuadTree *tree) {
     for (int i = 0; i < 4; i++) {
         if (tree->children[i]) {

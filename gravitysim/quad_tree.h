@@ -14,11 +14,11 @@
 #include "object_array.h"
 
 typedef struct quadtree_t {
-    struct quadtree_t *children[4];
-    RectangleD bounds;
-    Object com;
-    Object *object;
-    char has_children;
+    struct quadtree_t *children[4]; // four children
+    RectangleD bounds;  // the bound of a QuadTree
+    Object com;         // the common object of a QuadTree
+    Object *object;     // temporarily store the object
+    char has_children;  // has_children flag
 } QuadTree;
 
 QuadTree* quadtree_init(RectangleD bounds);

@@ -11,6 +11,9 @@
 #include <string.h>
 #include "object_array.h"
 
+/**
+ * init an obejct array with a specified capacity
+ */
 ObjectArray* objectarray_init_empty(size_t capacity) {
     ObjectArray *array = (ObjectArray*)malloc(sizeof(ObjectArray));
     if (!array) {
@@ -26,6 +29,9 @@ ObjectArray* objectarray_init_empty(size_t capacity) {
     return array;
 }
 
+/**
+ * add object into the ObjectArray
+ */
 void objectarray_add(ObjectArray *array, Object object) {
     if (array->len >= array->capacity) {
         size_t new_capacity = array->capacity * 2;
@@ -41,11 +47,17 @@ void objectarray_add(ObjectArray *array, Object object) {
     array->len++;
 }
 
+/**
+ * dealloc an ObjectArray
+ */
 void objectarray_dealloc(ObjectArray *array) {
     free(array->objects);
     free(array);
 }
 
+/**
+ * remove an object at a specified index i, replace the i-th object with the last obejct in the ObjectArray
+ */
 void objectarray_remove_object_at(ObjectArray *array, size_t i) {
     if (i != array->len) {
         array->objects[i] = array->objects[array->len - 1];

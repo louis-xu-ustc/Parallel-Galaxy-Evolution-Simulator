@@ -24,6 +24,17 @@ void draw_darken_pixel_bw(Screen *screen, int x, int y, float step) {
     draw_set_pixel(screen, x, y, rgbcolor_make(color, color, color));
 }
 
+void draw_lighten_pixel_bw(Screen *screen, int x, int y, float step) {
+    if (x < 0 || y < 0 || x >= screen->width || y >= screen->height) {
+        return;
+    }
+
+    float color = draw_get_pixel(screen, x, y).red;
+    color = color + step;
+    color = MIN(1, color);
+    draw_set_pixel(screen, x, y, rgbcolor_make(color, color, color));
+}
+
 void draw_darken_pixel(Screen *screen, int x, int y, float step) {
     if (x < 0 ||
         y < 0 ||
