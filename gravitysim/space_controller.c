@@ -29,6 +29,7 @@ SpaceController* spacecontroller_init(SimulationConfig config) {
         free(controller);
         return NULL;
     }
+    controller->loop_times = config.loop_times;
     return controller;
 }
 

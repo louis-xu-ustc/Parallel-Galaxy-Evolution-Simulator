@@ -13,6 +13,7 @@
 #include "space_model.h"
 
 typedef struct {
+    size_t loop_times;
     RectangleD view_bounds;
     RectangleD model_bounds;
     size_t objects_n;
@@ -21,6 +22,7 @@ typedef struct {
 } SimulationConfig;
 
 typedef struct {
+    size_t loop_times;
     SpaceView *view;
     SpaceModel *model;
 } SpaceController;

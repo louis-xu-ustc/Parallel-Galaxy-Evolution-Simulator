@@ -19,7 +19,9 @@
 
 #define GS_INLINE inline
 #define GS_FLOAT  float
+#define GS_DOUBLE double
 
+#define LOOP_TIMES 1000
 #define CONST_TIME 0.1
 #define OBJECT_NUM 1000
 #define GALAXY_NUM 4
