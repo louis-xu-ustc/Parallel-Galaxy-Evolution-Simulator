@@ -36,9 +36,12 @@ We are going to implement two possible algorithms for a real-time computer visio
 
 **BACKGROUND**  
 Galaxy evolution usually forms beautiful spiral patterns as a result of rotation, colliding and fusion between different galaxies. However, the forming of these patterns needs a large amount of calculation. Our team wants to use what we have learnt in this course to speedup the simulator.  
+
 Basically, galaxy evolution simulator is a force simulation to calculate the gravitational forces and motion of N bodies. There're mainly three methods to solve this problem: brute force program, Barnes-Hut algorithm and Fast Multipole Method. The computational complexity decreases from N^2, N*lgN to N for these three algorithms. Our team will focus on the Barnes-Hut algorithm and Fast Multipole Method, and compare/analyze their speedup performance. 
 If time allows, our team also want to try Hamada's new algorithm [1] to solve the N-body simulation problem.  
+
 The basic idea of Barnes-Hut algorithm is to group the nearby particles by using a macro-particle located at the mass-weighted center of the area. If the distance between two groups are sufficiently far away, we can use the mass center in the actual calculation. Quad-tree is the data structure that's suitable to store the information for this problem. Quad-tree is similar to binary tree but with 4 children for each node. The root node represents the whole space and its 4 children can represent the four quadrants (nw, ne, sw and se) of the space. Since tree is a recursive structure, this procedure can be repeated until the leaf of the tree that represents a single body in this problem. The problem can benefit from parallelism in accumulating the gravitational force by traversing the Quad-tree and updating the position based on the exerted gravitational force.  
+
 Fast Multipole Method is different with Barnes-Hut. It computes the potential at every body, not just the force exerted on the body. It also uses more information in each quadrant than the centric mass and total mass. This helps to increase the accuracy but also incurs more calculation of each iteration.
 
 <!---If your project involves accelerating a compute-intensive application, describe the application or piece of the application you are going to implement in more detail. This description need only be a few paragraphs. It might be helpful to include a block diagram or pseudocode of the basic idea. An important detail is what aspects of the problem might benefit from parallelism? And why?
@@ -46,6 +49,7 @@ Fast Multipole Method is different with Barnes-Hut. It computes the potential at
 
 **THE CHALLENGE**   
 The first challenge is that how to assign jobs evenly, since the amount of work per body is not uniform in each iteration. The amount of work for a body in a group with multiple of bodies is different with a body that's far away with most of body groups. Also, bodies will move during two iterations. So the cost and communication patterns will also change over time.  
+
 The second challenge is that how to handle colliding between different bodies. Currently, our team hasn't decided how to handle this case. If we need to consider colliding in this problem, it will make it more challenging, because the position update of one body may need to consider other bodies's influence and re-calculate where the body will go after that.
 
 <!---Describe why the problem is challenging. What aspects of the problem might make it difficult to parallelize? In other words, what to you hope to learn by doing the project?
@@ -76,7 +80,6 @@ Produce a schedule for your project. Your schedule should have at least one item
 **Reference**  
 *[1] Hamada, Tsuyoshi, Tetsu Narumi, Rio Yokota, Kenji Yasuoka, Keigo Nitadori, and Makoto Taiji. "42 tflops hierarchical n-body simulations on gpus with applications in both astrophysics and turbulence." In High Performance Computing Networking, Storage and Analysis, Proceedings of the Conference on, pp. 1-12. IEEE, 2009.*  
 *[2] http://adl.stanford.edu/cme342/Lecture_Notes_files/lecture13-14_1.pdf*  
-*[3] http://www.cs.princeton.edu/courses/archive/fall03/cs126/assignments/barnes-hut.html*  
-**  
+*[3] http://www.cs.princeton.edu/courses/archive/fall03/cs126/assignments/barnes-hut.html*
 
 
