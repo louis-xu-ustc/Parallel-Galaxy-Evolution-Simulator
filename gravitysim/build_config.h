@@ -32,11 +32,11 @@
 // 1 - black background and white foreground 
 // 0 - white background and black foreground
 #define BG_BLACK_FG_WHITE 1 
-#define DRAW_SOLID  0
-#define DRAW_BIG    1
+#define DRAW_SOLID  1
+#define DRAW_BIG    0
 #define DRAW_DARKEN_OR_LIGHTEN 0 
 #define DARKEN_OR_LIGHTEN_STEP 0.3
-#define DRAW_QUADS   1
+#define DRAW_QUADS   0
 #define PRINT_FPS    0
 
 #define MAX_SPEED 10.00
