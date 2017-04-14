@@ -16,7 +16,7 @@ SpaceModel::SpaceModel(RectangleD bounds, size_t capacity) {
 }
 
 SpaceModel::SpaceModel(RectangleD bounds, RectangleD galaxies_bounds, size_t n_galaxies,
-                                 size_t objects_per_galaxy, GS_FLOAT galaxy_size) {
+                                 size_t objects_per_galaxy, GS_FLOAT galaxy_size) : SpaceModel(bounds, objects_per_galaxy * n_galaxies) {
     Point2D galaxy_pos;
     size_t i;
     for (i = 0; i < n_galaxies; i++) {

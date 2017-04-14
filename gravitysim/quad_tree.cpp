@@ -2,8 +2,12 @@
 #include <stdlib.h>
 #include "quad_tree.h"
 #include "build_config.h"
+#include "log.h"
+
+static int log_level = LOG_INFO;
 
 QuadTree::QuadTree(RectangleD bounds) {
+    ENTER();
     this->bounds = bounds;
     for (int i = 0; i < 4; i++) {
         this->children[i] = NULL;
@@ -11,11 +15,12 @@ QuadTree::QuadTree(RectangleD bounds) {
     this->object = NULL;
     this->has_children = 0;
     this->com = Object::make_zero();
+    LEAVE();
 }
 
 QuadTree::~QuadTree() {
     for (int i = 0; i < 4; i++) {
-        if (this->children[i]) {
+        if (this->children[i] != NULL ) {
             delete this->children[i];
         }
     }
@@ -23,16 +28,20 @@ QuadTree::~QuadTree() {
 
 void 
 QuadTree::add_objects(std::vector<Object> &objects) {
+    ENTER();
     size_t i;
+    DBG("size: %ld\n", objects.size());
     for (i = 0; i < objects.size(); i++) {
         if (point2d_is_in_rectangled(objects[i].position, this->bounds)) {
             this->add_object(&objects[i]);
         }
     }
+    LEAVE();
 }
 
 void 
 QuadTree::add_object(Object *object) {
+    ENTER();
     int q;
     if (this->has_children) {
         q = point2d_nquad_of_rectangled(object->position, this->bounds);
@@ -65,10 +74,12 @@ QuadTree::add_object(Object *object) {
             this->com = Object::add(this->com, *object);
         }
     }
+    LEAVE();
 }
 
 Point2D 
 QuadTree::get_force_on_object(Object *object) {
+    ENTER();
     GS_FLOAT s, d;
     Point2D dr, result = point2d_zero();    
     if (!this->has_children) {
@@ -90,11 +101,13 @@ QuadTree::get_force_on_object(Object *object) {
             }
         }
     }
+    LEAVE();
     return result;
 }
 
 void 
 QuadTree::apply_to_objects(std::vector<Object> &objects, GS_FLOAT dt) {
+    ENTER();
     size_t i;
     Object *object;
     for (i = 0; i < objects.size(); i++) {
@@ -102,6 +115,7 @@ QuadTree::apply_to_objects(std::vector<Object> &objects, GS_FLOAT dt) {
         Point2D acc = get_force_on_object(object);
         Point2D dv = point2d_multiply(acc, dt);
         object->speed = point2d_add(object->speed, dv);
-    }    
+    }
+    LEAVE();
 }
 

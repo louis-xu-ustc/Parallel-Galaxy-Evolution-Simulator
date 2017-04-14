@@ -35,4 +35,11 @@ typedef enum {
 #define INFO(fmt, ...)  \
 	log_printf(LOG_INFO, fmt, ##__VA_ARGS__)
 
+#define ENTER() \
+    DBG("[%s:%d] enter\n", __func__, __LINE__)
+
+#define LEAVE() \
+    DBG("[%s:%d] leave\n", __func__, __LINE__)
+
+
 #endif //__LOG_H__
