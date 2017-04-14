@@ -8,11 +8,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-//#include <GL/glfw.h>
 #include "glfw.h"
 #include <time.h>
 #include "screen.h"
-#include "drawing.h"
 #include "basic_types.h"
 #include "space_controller.h"
 #include "build_config.h"
@@ -36,7 +34,7 @@ int main(int argc, const char * argv[]) {
         return FAILURE;
     }
     SimulationConfig config = get_config(argc, argv);
-    SpaceController *controller = spacecontroller_init(config);
+    SpaceController *controller = new SpaceController(config);
     if (!controller) {
         return FAILURE;
     }
@@ -45,7 +43,6 @@ int main(int argc, const char * argv[]) {
     while (loop) {
         loop = main_loop(controller);
     }
-    spacecontroller_dealloc(controller);
     perf_report(p);
     perf_deinit(p);
     // close gl after all things done
@@ -64,11 +61,11 @@ bool main_loop(SpaceController *controller) {
         dt = current_time - old_time;
         
         if(glfwGetKey(GLFW_KEY_ESC) || !glfwGetWindowParam(GLFW_OPENED) ||
-                cnt >= controller->loop_times) {
+                cnt >= controller->get_loop_times()) {
             perf_update(p, cnt);
             return false;
         }
-        spacecontroller_update(controller, dt);
+        controller->update(dt);
         old_time = current_time;
         cnt++;
     }

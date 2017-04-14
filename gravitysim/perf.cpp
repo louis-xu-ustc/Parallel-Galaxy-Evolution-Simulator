@@ -8,13 +8,13 @@
 #include "perf.h"
 #include "glfw.h"
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 
 static int log_level = LOG_INFO;
 /**
  * init performance report
  */
-perf_t* perf_init(int loop_times, char* name) {
+perf_t* perf_init(int loop_times, string name) {
     if (loop_times <= 0) {
         return NULL;
     }
@@ -23,7 +23,7 @@ perf_t* perf_init(int loop_times, char* name) {
         ERR("not enough memory!");
         return NULL;
     }
-    memcpy(&p->name, name, 20);
+    memcpy(&p->name, name.c_str(), 20);
     p->loop_times = loop_times;
     p->start_time = glfwGetTime();
     p->time_memcpy = 0.f;

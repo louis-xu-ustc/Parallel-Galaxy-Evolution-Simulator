@@ -3,8 +3,7 @@
 #include "quad_tree.h"
 #include "build_config.h"
 
-
-quadtree::quadtree(RectangleD bounds) {
+QuadTree::QuadTree(RectangleD bounds) {
     this->bounds = bounds;
     for (int i = 0; i < 4; i++) {
         this->children[i] = NULL;
@@ -14,7 +13,7 @@ quadtree::quadtree(RectangleD bounds) {
     this->com = object_zero();
 }
 
-~quadtree::quadtree() {
+~QuadTree::QuadTree() {
     for (int i = 0; i < 4; i++) {
         if (this->children[i]) {
             delete this->children[i];
@@ -23,7 +22,7 @@ quadtree::quadtree(RectangleD bounds) {
 }
 
 void 
-quadtree::add_objects(ObjectArray *objects) {
+QuadTree::add_objects(ObjectArray *objects) {
     size_t i;
     for (i = 0; i < objects->len; i++) {
         if (point2d_is_in_rectangled(objects->objects[i].position, this->bounds)) {
@@ -33,13 +32,13 @@ quadtree::add_objects(ObjectArray *objects) {
 }
 
 void 
-quadtree::add_object(Object *object) {
+QuadTree::add_object(Object *object) {
     if (this->has_children) {
         q = point2d_nquad_of_rectangled(object->position, this->bounds);
         if (this->children[q]) {
             this->children[q]->add_object(object);
         } else {
-            this->children[q] = new quadtree(rectangled_nquad(this->bounds, q));
+            this->children[q] = new QuadTree(rectangled_nquad(this->bounds, q));
             this->add_object(this->children[q], object);
         }
         this->com->add(*object);
@@ -47,13 +46,13 @@ quadtree::add_object(Object *object) {
         if (this->object) {
             q = point2d_nquad_of_rectangled(object->position, this->bounds);
             if (!this->children[q]) {
-                this->children[q] = new quadtree(rectangled_nquad(this->bounds, q));
+                this->children[q] = new QuadTree(rectangled_nquad(this->bounds, q));
             }
             this->children[q]->add_object(object);
             
             q = point2d_nquad_of_rectangled(this->object->position, this->bounds);
             if (!this->children[q]) {
-                this->children[q] = new quadtree(rectangled_nquad(this->bounds, q));
+                this->children[q] = new QuadTree(rectangled_nquad(this->bounds, q));
             }
             this->children[q]->add_object(this->object);
             
@@ -68,7 +67,7 @@ quadtree::add_object(Object *object) {
 }
 
 Point2D 
-quadtree::get_force_on_object(Object *object) {
+QuadTree::get_force_on_object(Object *object) {
     GS_FLOAT s, d;
     Point2D dr, result = point2d_zero();    
     if (!this->has_children) {
@@ -85,8 +84,7 @@ quadtree::get_force_on_object(Object *object) {
             result = point2d_zero();
             for (int i = 0; i < 4; i++) {
                 if (this->children[i] != NULL) {
-                    result = point2d_add(result,
-                                         quadtree_get_force_on_object(this->children[i], object));
+                    result = point2d_add(result, get_force_on_object(this->children[i], object));
                 }
             }
         }
@@ -95,7 +93,7 @@ quadtree::get_force_on_object(Object *object) {
 }
 
 void 
-quadtree::apply_to_objects(ObjectArray *objects, GS_FLOAT dt) {
+QuadTree::apply_to_objects(ObjectArray *objects, GS_FLOAT dt) {
     size_t i;
     Object *object;
     for (i = 0; i < objects->len; i++) {

@@ -17,12 +17,13 @@ public:
 
     SpaceModel(RectangleD bounds, RectangleD galaxies_bounds, size_t n_galaxies,
                                      size_t objects_per_galaxy, GS_FLOAT galaxy_size);
+    ~SpaceModel();
 
     void add_galaxy(Point2D position, GS_FLOAT size, size_t n);
 
     void remove_objects_outside_bounds();
 
     void update(GS_FLOAT dt);
-}
+};
 
 #endif

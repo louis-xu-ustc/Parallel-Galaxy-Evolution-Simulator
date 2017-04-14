@@ -46,6 +46,6 @@ public:
      * object's position update with a specified dt
      */
     void update_position(GS_FLOAT dt);
-}
+};
 
 #endif

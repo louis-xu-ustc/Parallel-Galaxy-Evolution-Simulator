@@ -16,14 +16,15 @@
 #include "object_array.h"
 #include "quad_tree.h"
 
-typedef struct {
-    Screen *screen;
-} SpaceView;
-
-SpaceView * spaceview_init(RectangleD bounds);
-void spaceview_clear(SpaceView *view);
-void spaceview_draw_objects(SpaceView *view, ObjectArray *objects);
-void spaceview_draw_quadtree(SpaceView *view, QuadTree *tree);
-void spaceview_dealloc(SpaceView *view);
-void spaceview_display(SpaceView *view);
+class SpaceView {
+    private:
+        Screen *screen;
+    public:
+        SpaceView(RectangleD bounds);
+        ~SpaceView();
+        void clear();
+        void draw_objects(ObjectArray *objects);
+        void draw_quadTree(QuadTree *tree);
+        void display();
+};
 #endif

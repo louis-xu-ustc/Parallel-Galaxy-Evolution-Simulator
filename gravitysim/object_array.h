@@ -13,7 +13,7 @@
 #include "basic_types.h"
 
 
-class objectarray {
+class ObjectArray {
 private:
     Object *objects;
     size_t len;
@@ -23,12 +23,7 @@ public:
     /**
      * init an obejct array with a specified capacity
      */
-    objectarray(size_t capacity);
-
-    /**
-     * dealloc an ObjectArray
-     */
-    void objectarray_dealloc();
+    ObjectArray(size_t capacity);
 
     /**
      * remove an object at a specified index i, replace the i-th object with the last obejct in the ObjectArray
@@ -38,7 +33,7 @@ public:
     /**
      * add object into the ObjectArray
      */
-    void objectarray_add(Object object);
-}
+    void add(Object object);
+};
 
 #endif

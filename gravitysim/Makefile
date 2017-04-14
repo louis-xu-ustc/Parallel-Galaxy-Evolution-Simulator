@@ -1,13 +1,16 @@
-CC = gcc
-CFLAGS = -O3 -flto -Wall $(shell pkg-config --cflags --libs libglfw) -std=gnu99
+CXX=clang++
+CXXFLAGS=-g -std=c++11 -O3 -flto -Wall $(shell pkg-config --cflags --libs libglfw)
+BIN=gravitysim
+
+SRC=$(wildcard *.cpp)
+OBJ=$(SRC:%.cpp=%.o)
 
 mac: 
-	$(CC) $(CFLAGS) -Wl,-framework,OpenGL *.c -o gravitysim 
+	$(CXX) $(CXXFLAGS) -Wl,-framework,OpenGL $(SRC) -o $(BIN)
 
 linux:
-	$(CC) $(CFLAGS) -lm -lGL *.c -o gravitysim 
+	$(CXX) $(CXXFLAGS) -lm -lGL $(SRC) -o $(BIN)
 
 clean:
 	rm -f *.o
-#gcc *.c -o gravsim -lm -lglfw -lGL -lpthread -std=gnu99 -O3
-#gcc *.c -o gravsim -lglfw -Wl,-framework,OpenGL -lpthread -std=gnu99 -O3
+	rm -f $(BIN)

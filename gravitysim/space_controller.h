@@ -21,14 +21,16 @@ typedef struct {
     GS_FLOAT galaxy_size;
 } SimulationConfig;
 
-typedef struct {
-    size_t loop_times;
-    SpaceView *view;
-    SpaceModel *model;
-} SpaceController;
+class SpaceController {
+    private:
+        size_t loop_times;
+        SpaceView *view;
+        SpaceModel *model;
 
-SpaceController* spacecontroller_init(SimulationConfig config);
-void spacecontroller_update(SpaceController *controller, GS_FLOAT dt);
-void spacecontroller_dealloc(SpaceController *controller);
-
+    public:
+        size_t get_loop_times();
+        SpaceController(SimulationConfig config);
+        ~SpaceController();
+        void update(GS_FLOAT dt);
+};
 #endif
