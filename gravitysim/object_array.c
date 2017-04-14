@@ -1,66 +1,53 @@
-//
-//  object_array.c
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 25.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "object_array.h"
 
-/**
- * init an obejct array with a specified capacity
- */
-ObjectArray* objectarray_init_empty(size_t capacity) {
-    ObjectArray *array = (ObjectArray*)malloc(sizeof(ObjectArray));
-    if (!array) {
-        return NULL;
-    }
-    array->objects = (Object*)malloc(capacity * sizeof(Object));
-    if (!array->objects) {
-        free(array);
-        return NULL;
-    }
-    array->capacity = capacity;
-    array->len = 0;
-    return array;
-}
 
-/**
- * add object into the ObjectArray
- */
-void objectarray_add(ObjectArray *array, Object object) {
-    if (array->len >= array->capacity) {
-        size_t new_capacity = array->capacity * 2;
-        Object* realloc_ptr = realloc(array->objects, new_capacity * sizeof(Object));
-        if (realloc_ptr == NULL) {
-            fprintf(stderr, "Realloc error in ObjectArray.\n");
-            return; //no erro handling here
-        }
-        array->objects = realloc_ptr;
-        array->capacity = new_capacity;
+objectarray::objectarray(size_t capacity) {
+    this->objects = (Object*)malloc(capacity * sizeof(Object));
+    if (!this->objects) {
+        return NULL;
     }
-    array->objects[array->len] = object;
-    array->len++;
+    this->capacity = capacity;
+    this->len = 0;
 }
 
 /**
  * dealloc an ObjectArray
  */
-void objectarray_dealloc(ObjectArray *array) {
-    free(array->objects);
-    free(array);
+void 
+objectarray::~objectarray() {
+    delete this->objects;
+    delete this;
 }
 
 /**
  * remove an object at a specified index i, replace the i-th object with the last obejct in the ObjectArray
  */
-void objectarray_remove_object_at(ObjectArray *array, size_t i) {
-    if (i != array->len) {
-        array->objects[i] = array->objects[array->len - 1];
+void 
+objectarray::remove_object_at(size_t i) {
+    if (i != this->len) {
+        this->objects[i] = this->objects[this->len - 1];
     }
-    array->len--;
+    this->len--;
+}
+
+/**
+ * add object into the ObjectArray
+ */
+void 
+objectarray::add(Object object) {
+    if (this->len >= this->capacity) {
+        size_t new_capacity = this->capacity * 2;
+        Object* realloc_ptr = realloc(this->objects, new_capacity * sizeof(Object));
+        if (realloc_ptr == NULL) {
+            fprintf(stderr, "Realloc error in ObjectArray.\n");
+            return; //no erro handling here
+        }
+        this->objects = realloc_ptr;
+        this->capacity = new_capacity;
+    }
+    this->objects[this->len] = object;
+    this->len++;
 }

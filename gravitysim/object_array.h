@@ -12,16 +12,33 @@
 #include "object.h"
 #include "basic_types.h"
 
-typedef struct {
+
+class objectarray {
+private:
     Object *objects;
     size_t len;
     size_t capacity;
-} ObjectArray;
 
-ObjectArray* objectarray_init_empty(size_t capacity);
-void objectarray_dealloc(ObjectArray *array);
-void objectarray_remove_object_at(ObjectArray *array, size_t i);
-void objectarray_add(ObjectArray *array, Object object);
+public:
+    /**
+     * init an obejct array with a specified capacity
+     */
+    objectarray(size_t capacity);
 
+    /**
+     * dealloc an ObjectArray
+     */
+    void objectarray_dealloc();
+
+    /**
+     * remove an object at a specified index i, replace the i-th object with the last obejct in the ObjectArray
+     */
+    void remove_object_at(size_t i);
+
+    /**
+     * add object into the ObjectArray
+     */
+    void objectarray_add(Object object);
+}
 
 #endif

@@ -12,18 +12,47 @@
 #include <stdbool.h>
 #include "basic_types.h"
 
-typedef struct {
+class Object {
+private:
     Point2D position;
     Point2D speed;
     GS_FLOAT mass;
-} Object;
 
-Object object_add(Object a, Object b);
-Object object_make(Point2D position, Point2D speed, GS_FLOAT mass);
-Object object_make_random(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_mass);
-Object object_make_random_in_ellipse(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_mass);
-Object object_zero();
-Point2D object_calculate_force(Object a, Object b);
-void object_update_position(Object *object, GS_FLOAT dt);
+public:
+    /**
+     * make an object with the specified position, speed and mass
+     */
+    static Object make(Point2D position, Point2D speed, GS_FLOAT mass);
+
+    /**
+     * randomly make an object with specified bounds, max_speed and max_mass
+     */
+    static Object make_random(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_mass);
+
+    /**
+     * randomly make an obejct with specified bounds, max_speed and max_mass in an ellipse
+     */
+    static Object make_random_in_ellipse(RectangleD bounds, GS_FLOAT max_speed, GS_FLOAT max_mass);
+
+    /**
+     * object with zero position and mass
+     */
+    static Object make_zero();
+
+    /**
+     * calculating the sum of two objects, weighted by mass, return the new object
+     */
+    static Object object_add(Object a, Object b);
+
+    /**
+     * calculate the force between object a and b
+     */
+    static Point2D calculate_force(Object a, Object b);
+
+    /**
+     * object's position update with a specified dt
+     */
+    void update_position(GS_FLOAT dt);
+}
 
 #endif

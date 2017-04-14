@@ -1,65 +1,37 @@
-//
-//  space_model.c
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 24.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #include "space_model.h"
 #include <stdlib.h>
 
-void spacemodel_remove_objects_outside_bounds(SpaceModel *m);
+SpaceModel::SpaceModel(RectangleD bounds, size_t capacity) {
+    this->bounds = bounds;
+    // change to new syntax; this is where dependency injection plays its part
+    this->tree = new quadtree(this->bounds);
 
-/**
- * init a SpaceModel with specified bounds and capacity
- */ 
-SpaceModel* spacemodel_init_empty(RectangleD bounds, size_t capacity) {
-    SpaceModel *m = (SpaceModel*)malloc(sizeof(SpaceModel));
-    if (m == NULL) {
+    if (this->tree == NULL) {
         return NULL;
     }
-    m->bounds = bounds;
-    m->tree = quadtree_init(m->bounds);
-    if (m->tree == NULL) {
-        free(m);
+    // change to new syntax
+    this->objects = new objectarray(capacity);
+    if (this->objects == NULL) {
         return NULL;
     }
-    m->objects = objectarray_init_empty(capacity);
-    if (m->objects == NULL) {
-        quadtree_dealloc(m->tree);
-        free(m);
-        return NULL;
-    }
-    quadtree_add_objects(m->tree, m->objects);
-    return m;
+    this->tree->add_objects(this->objects);
 }
 
-/**
- * init galaxies in the SpaceModel with parameters
- */
-SpaceModel* spacemodel_init_galaxies(RectangleD bounds, RectangleD galaxies_bounds, size_t n_galaxies,
-                                     size_t objects_per_galaxy, GS_FLOAT galaxy_size) {
-    SpaceModel *m = spacemodel_init_empty(bounds, objects_per_galaxy * n_galaxies);
-    if (m == NULL) {
-        return NULL;
-    }
+SpaceModel::SpaceModel(RectangleD bounds, RectangleD galaxies_bounds, size_t n_galaxies,
+                                 size_t objects_per_galaxy, GS_FLOAT galaxy_size) {
     Point2D galaxy_pos;
     size_t i;
     for (i = 0; i < n_galaxies; i++) {
         galaxy_pos.x =  ((GS_FLOAT)rand()/(GS_FLOAT)RAND_MAX) * (galaxies_bounds.size.x - galaxy_size);
         galaxy_pos.y =  ((GS_FLOAT)rand()/(GS_FLOAT)RAND_MAX) * (galaxies_bounds.size.y - galaxy_size);
-        spacemodel_add_galaxy(m, galaxy_pos, galaxy_size, objects_per_galaxy);
+        add_galaxy(galaxy_pos, galaxy_size, objects_per_galaxy);
     }
-    m->bounds = bounds;
-    quadtree_add_objects(m->tree, m->objects);
-    return m;
+    this->bounds = bounds;
+    this->tree->add_objects(this->objects);
 }
 
-/**
- * add galaxy to the SpaceModel
- */
-void spacemodel_add_galaxy(SpaceModel *m, Point2D position, GS_FLOAT size, size_t n) {
+void 
+SpaceModel::add_galaxy(Point2D position, GS_FLOAT size, size_t n) {
     size_t i;
     Point2D delta_pos, direction, speed_vector;
     GS_FLOAT distance;
@@ -72,47 +44,38 @@ void spacemodel_add_galaxy(SpaceModel *m, Point2D position, GS_FLOAT size, size_
         distance = point2d_length(delta_pos);
         speed_vector = point2d_multiply(direction, distance); //yeah, that's primitive
         new_object.speed = point2d_rotate_90_ccw(speed_vector);
-        objectarray_add(m->objects, new_object);
+        this->objects->add(new_object);
     }
 }
 
-/**
- * remove objects that's outside of the bounds in the SpaceModel
- */
-void spacemodel_remove_objects_outside_bounds(SpaceModel *m) {
+void 
+SpaceModel::remove_objects_outside_bounds() {
     size_t i;
-    for (i = 0; i < m->objects->len; i++) {
-        if (!point2d_is_in_rectangled(m->objects->objects[i].position, m->bounds)) {
-            objectarray_remove_object_at(m->objects, i);
+    for (i = 0; i < this->objects->len; i++) {
+        if (!point2d_is_in_rectangled(this->objects->objects[i].position, this->bounds)) {
+            this->objects->remove_object_at(i);
             i--;
         }
     }
 }
 
-/**
- * update all the objects in the SpaceModel at the time interval dt
- * remove all objects that are outside of the bound and reconstruct the QuadTree
- */
-void spacemodel_update(SpaceModel *m, GS_FLOAT dt) {
+void 
+SpaceModel::update(GS_FLOAT dt) {
     size_t i;
 #ifdef CONST_TIME
     dt = CONST_TIME;
 #endif
-    quadtree_apply_to_objects(m->tree, m->objects, dt);
-    for (i = 0; i < m->objects->len; i++) {
-        object_update_position(&m->objects->objects[i], dt);
+    this->tree->apply_to_objects(this->objects, dt);
+    for (i = 0; i < this->objects->len; i++) {
+        &this->objects->objects[i]->update_position(dt);
     }
-    spacemodel_remove_objects_outside_bounds(m);
-    quadtree_dealloc(m->tree);
-    m->tree = quadtree_init(m->bounds);
-    quadtree_add_objects(m->tree, m->objects);
+    remove_objects_outside_bounds();
+    delete this->tree;
+    this->tree = quadtree_init(this->bounds);
+    this->tree->add_objects(this->objects);
 }
 
-/**
- * dealloc SpaceModel
- */
-void spacemodel_dealloc(SpaceModel *m) {
-    objectarray_dealloc(m->objects);
-    quadtree_dealloc(m->tree);
-    free(m);
+~SpaceModel::SpaceModel() {
+    delete this->objects;
+    delete this->tree;
 }
