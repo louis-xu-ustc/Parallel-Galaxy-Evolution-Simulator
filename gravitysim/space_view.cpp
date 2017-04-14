@@ -63,11 +63,11 @@ SpaceView::draw_objects(ObjectArray *objects) {
 #else // white background and black foreground
 
 #if DRAW_SOLID
-        draw_set_pixel(this->screen, pos.x, pos.y, RGB_BLACK);
+        this->screen->draw_set_pixel(pos.x, pos.y, RGB_BLACK);
 #elif DRAW_BIG
-        draw_rectangle(this->screen, rectanglei_make(pos.x, pos.y, 3, 3), RGB_BLACK);
+        this->screen->draw_rectangle(rectanglei_make(pos.x, pos.y, 3, 3), RGB_BLACK);
 #elif DRAW_DARKEN_OR_LIGHTEN
-        draw_darken_pixel_bw(this->screen, pos.x, pos.y, DARKEN_OR_LIGHTEN_STEP);
+        this->screen->draw_darken_pixel_bw(pos.x, pos.y, DARKEN_OR_LIGHTEN_STEP);
 #endif
 
 #endif

@@ -10,7 +10,6 @@
 #define GravitySim_space_view_h
 
 #include <stdlib.h>
-
 #include "object.h"
 #include "screen.h"
 #include "object_array.h"
