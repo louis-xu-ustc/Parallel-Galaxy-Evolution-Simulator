@@ -4,7 +4,7 @@
 SpaceModel::SpaceModel(RectangleD bounds, size_t capacity) {
     this->bounds = bounds;
     // change to new syntax; this is where dependency injection plays its part
-    this->tree = new quadtree(this->bounds);
+    this->tree = new QuadTree(this->bounds);
 
     if (this->tree == NULL) {
         return NULL;
@@ -71,7 +71,7 @@ SpaceModel::update(GS_FLOAT dt) {
     }
     remove_objects_outside_bounds();
     delete this->tree;
-    this->tree = quadtree_init(this->bounds);
+    this->tree = new QuadTree(this->bounds);
     this->tree->add_objects(this->objects);
 }
 

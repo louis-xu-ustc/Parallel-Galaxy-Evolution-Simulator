@@ -12,15 +12,26 @@
 #include <stdio.h>
 #include "basic_types.h"
 
-typedef struct {
-    int width;
-    int height;
-    RGBColor *pixels;
-} Screen;
+class Screen {
+    private:
+        int width;
+        int height;
+        RGBColor  *pixels;
 
-Screen *screen_init(int width, int height);
-void screen_fill(Screen *screen, RGBColor color);
-void screen_display(Screen *screen);
-void screen_dealloc(Screen *screen);
+    public:
+        Screen(int width, int height);
+        ~Screen();
+        void fill(RGBColor color);
+        void display();
+
+        void draw_darken_pixel(int x, int y, float step);
+        void draw_darken_pixel_bw(int x, int y, float step);
+        void draw_lighten_pixel(int x, int y, float step);
+        void draw_lighten_pixel_bw(int x, int y, float step);
+        void draw_set_pixel(int x, int y, RGBColor color);
+        RGBColor draw_get_pixel(int x, int y);
+        void draw_rectangle(RectangleI rect, RGBColor color);
+        void draw_empty_rectangle(RectangleD rect, RGBColor color);
+};
 
 #endif
