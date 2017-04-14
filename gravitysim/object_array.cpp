@@ -7,7 +7,8 @@
 ObjectArray::ObjectArray(size_t capacity) {
     this->objects = (Object*)malloc(capacity * sizeof(Object));
     if (!this->objects) {
-        return NULL;
+        printf("unable to initialize objects in ObjectArray\n");
+        return;
     }
     this->capacity = capacity;
     this->len = 0;
@@ -16,7 +17,6 @@ ObjectArray::ObjectArray(size_t capacity) {
 /**
  * dealloc an ObjectArray
  */
-void 
 ObjectArray::~ObjectArray() {
     if (this->objects) {
        free(this->objects);
@@ -41,7 +41,7 @@ void
 ObjectArray::add(Object object) {
     if (this->len >= this->capacity) {
         size_t new_capacity = this->capacity * 2;
-        Object* realloc_ptr = realloc(this->objects, new_capacity * sizeof(Object));
+        Object* realloc_ptr = (Object*)realloc(this->objects, new_capacity * sizeof(Object));
         if (realloc_ptr == NULL) {
             fprintf(stderr, "Realloc error in ObjectArray.\n");
             return; //no erro handling here

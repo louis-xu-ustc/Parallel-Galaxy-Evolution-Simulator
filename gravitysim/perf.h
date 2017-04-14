@@ -2,6 +2,7 @@
 #define __PERF_H__
 
 #include "build_config.h"
+#include <string>
 
 typedef struct perf_s {
     char name[20];
@@ -13,7 +14,7 @@ typedef struct perf_s {
 
 } perf_t;
 
-perf_t* perf_init(int loop_times, char* name);
+perf_t* perf_init(int loop_times, std::string name);
 void perf_update(perf_t *p, int cnt);
 void perf_report(perf_t *p);
 void perf_deinit(perf_t *p);

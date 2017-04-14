@@ -15,26 +15,27 @@
 SpaceController::SpaceController(SimulationConfig config) {
     this->model = new SpaceModel(config.model_bounds, config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
     this->view = new SpaceView(config.view_bounds);
-    this->loopTimes = config.loop_times;
+    this->loop_times = config.loop_times;
 }
 
 /**
  * update the SpaceController with specified time interval dt
  */
-SpaceController::void update(GS_FLOAT dt) {
+void
+SpaceController::update(GS_FLOAT dt) {
     static GS_FLOAT last_update_time = 0.0;
-    this->model.update(dt);
+    this->model->update(dt);
     last_update_time += dt;
     if (last_update_time >= (1.0 / MAX_FPS)) {
-        this->view.clear();
-        this->view.draw_objects(this->model->objects);
+        this->view->clear();
+        this->view->draw_objects(this->model->objects);
 #if DRAW_QUADS
-        this->view.draw_quadtree(this->model->tree);
+        this->view->draw_quadtree(this->model->tree);
 #endif
 #if PRINT_FPS
         printf("FPS: %.1f\n", 1.0 / last_update_time);
 #endif
-        this->view.display();
+        this->view->display();
         last_update_time = 0.0;
     }
 }
@@ -47,6 +48,7 @@ SpaceController::~SpaceController () {
     delete this->model;
 }
 
-SpaceController::size_t get_loop_times() {
-    return this.loop_times;
+size_t
+SpaceController::get_loop_times() {
+    return this->loop_times;
 }

@@ -7,9 +7,9 @@
 //
 
 #include "space_view.h"
-#include "drawing.h"
 #include "glfw.h"
 #include "build_config.h"
+#include <stdio.h>
 
 /**
  * init the SpaceView with specified bounds
@@ -17,7 +17,8 @@
 SpaceView::SpaceView(RectangleD bounds) {
     this->screen = new Screen(bounds.size.x, bounds.size.y);
     if (!this->screen) {
-        return NULL;
+        printf("unable to initialize Screen in SpaceView\n");
+        return;
     }
 }
 
@@ -31,18 +32,20 @@ SpaceView::~SpaceView() {
 /**
  * clear the SpaceView with white color
  */
-SpaceView::void clear() {
+void
+SpaceView::clear() {
 #if BG_BLACK_FG_WHITE
-    screen_fill(this->screen, RGB_BLACK);
+    this->screen->fill(RGB_BLACK);
 #else
-    screen_fill(this->screen, RGB_WHITE);
+    this->screen->fill(RGB_WHITE);
 #endif
 }
 
 /**
  * draw all the objects in the specified SpaceView
  */
-SpaceView::void draw_objects(ObjectArray *objects) {
+void
+SpaceView::draw_objects(ObjectArray *objects) {
     size_t i;
     Point2D pos;
     for (i = 0; i < objects->len; i++) {
@@ -50,11 +53,11 @@ SpaceView::void draw_objects(ObjectArray *objects) {
 #if BG_BLACK_FG_WHITE
 
 #if DRAW_SOLID
-        draw_set_pixel(this->screen, pos.x, pos.y, RGB_WHITE);
+        this->screen->draw_set_pixel(pos.x, pos.y, RGB_WHITE);
 #elif DRAW_BIG
-        draw_rectangle(this->screen, rectanglei_make(pos.x, pos.y, 3, 3), RGB_WHITE);
+        this->screen->draw_rectangle(rectanglei_make(pos.x, pos.y, 3, 3), RGB_WHITE);
 #elif DRAW_LIGHTEN_OR_LIGHTEN
-        draw_lighten_pixel_bw(this->screen, pos.x, pos.y, DARKEN_OR_LIGHTEN_STEP);
+        this->screen->draw_lighten_pixel_bw(pos.x, pos.y, DARKEN_OR_LIGHTEN_STEP);
 #endif
 
 #else // white background and black foreground
@@ -74,18 +77,20 @@ SpaceView::void draw_objects(ObjectArray *objects) {
 /**
  * SpaceView display
  */
-SpaceView::void display() {
-    this->screen.display();
+void
+SpaceView::display() {
+    this->screen->display();
 }
 
 /**
  * draw QuadTree in the SpaceView
  */
-SpaceView::void draw_quadtree(QuadTree *tree) {
+void
+SpaceView::draw_quadTree(QuadTree *tree) {
     for (int i = 0; i < 4; i++) {
         if (tree->children[i]) {
-            draw_quadtree(tree->children[i]);
+            draw_quadTree(tree->children[i]);
         }
     }
-    draw_empty_rectangle(this->screen, tree->bounds, RGB_BLUE);
+    this->screen->draw_empty_rectangle(tree->bounds, RGB_BLUE);
 }

@@ -1,4 +1,4 @@
-CXX=clang++
+CXX=g++
 CXXFLAGS=-g -std=c++11 -O3 -flto -Wall $(shell pkg-config --cflags --libs libglfw)
 BIN=gravitysim
 

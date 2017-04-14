@@ -8,13 +8,15 @@
 
 class QuadTree {
     private:
+        
+
+    public:
         QuadTree *children[4]; // four children
         RectangleD bounds;  // the bound of a QuadTree
         Object com;         // the common object of a QuadTree
         Object *object;     // temporarily store the object
         char has_children;  // has_children flag
 
-    public:
         QuadTree(RectangleD bounds);
 
         ~QuadTree();

@@ -15,11 +15,11 @@
 
 class ObjectArray {
 private:
-    Object *objects;
-    size_t len;
-    size_t capacity;
 
 public:
+    size_t len;
+    Object *objects;
+    size_t capacity;
     /**
      * init an obejct array with a specified capacity
      */
@@ -34,6 +34,8 @@ public:
      * add object into the ObjectArray
      */
     void add(Object object);
+
+    ~ObjectArray();
 };
 
 #endif

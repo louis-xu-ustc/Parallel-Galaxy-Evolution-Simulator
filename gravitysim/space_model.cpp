@@ -1,5 +1,6 @@
 #include "space_model.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 SpaceModel::SpaceModel(RectangleD bounds, size_t capacity) {
     this->bounds = bounds;
@@ -7,12 +8,14 @@ SpaceModel::SpaceModel(RectangleD bounds, size_t capacity) {
     this->tree = new QuadTree(this->bounds);
 
     if (this->tree == NULL) {
-        return NULL;
+        printf("unable to initialize QuadTree in SpaceModel\n");
+        return;
     }
     // change to new syntax
-    this->objects = new objectarray(capacity);
+    this->objects = new ObjectArray(capacity);
     if (this->objects == NULL) {
-        return NULL;
+        printf("unable to initialize ObjectArray in SpaceModel\n");
+        return;
     }
     this->tree->add_objects(this->objects);
 }
@@ -38,7 +41,7 @@ SpaceModel::add_galaxy(Point2D position, GS_FLOAT size, size_t n) {
     Object new_object;
     RectangleD bounds = rectangled_make(position.x, position.y, size, size);
     for (i = 0; i < n; i++) {
-        new_object = object_make_random_in_ellipse(bounds, 0.0, MAX_MASS);
+        new_object = Object::make_random_in_ellipse(bounds, 0.0, MAX_MASS);
         delta_pos = point2d_sub(new_object.position, bounds.middle);
         direction = point2d_unit(delta_pos);
         distance = point2d_length(delta_pos);
@@ -67,7 +70,7 @@ SpaceModel::update(GS_FLOAT dt) {
 #endif
     this->tree->apply_to_objects(this->objects, dt);
     for (i = 0; i < this->objects->len; i++) {
-        &this->objects->objects[i]->update_position(dt);
+        this->objects->objects[i].update_position(dt);
     }
     remove_objects_outside_bounds();
     delete this->tree;
@@ -75,7 +78,7 @@ SpaceModel::update(GS_FLOAT dt) {
     this->tree->add_objects(this->objects);
 }
 
-~SpaceModel::SpaceModel() {
+SpaceModel::~SpaceModel() {
     delete this->objects;
     delete this->tree;
 }

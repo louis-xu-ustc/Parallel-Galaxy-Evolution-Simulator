@@ -8,13 +8,14 @@
 #include "perf.h"
 #include "glfw.h"
 #include <stdlib.h>
-#include <string>
+#include <cstring>
+
 
 static int log_level = LOG_INFO;
 /**
  * init performance report
  */
-perf_t* perf_init(int loop_times, string name) {
+perf_t* perf_init(int loop_times, std::string name) {
     if (loop_times <= 0) {
         return NULL;
     }

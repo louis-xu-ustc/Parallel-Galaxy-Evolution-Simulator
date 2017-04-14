@@ -10,10 +10,10 @@ QuadTree::QuadTree(RectangleD bounds) {
     }
     this->object = NULL;
     this->has_children = 0;
-    this->com = object_zero();
+    this->com = Object::make_zero();
 }
 
-~QuadTree::QuadTree() {
+QuadTree::~QuadTree() {
     for (int i = 0; i < 4; i++) {
         if (this->children[i]) {
             delete this->children[i];
@@ -33,15 +33,16 @@ QuadTree::add_objects(ObjectArray *objects) {
 
 void 
 QuadTree::add_object(Object *object) {
+    int q;
     if (this->has_children) {
         q = point2d_nquad_of_rectangled(object->position, this->bounds);
         if (this->children[q]) {
             this->children[q]->add_object(object);
         } else {
             this->children[q] = new QuadTree(rectangled_nquad(this->bounds, q));
-            this->add_object(this->children[q], object);
+            this->children[q]->add_object(object);
         }
-        this->com->add(*object);
+        this->com = Object::add(this->com, *object);
     } else {
         if (this->object) {
             q = point2d_nquad_of_rectangled(object->position, this->bounds);
@@ -58,10 +59,10 @@ QuadTree::add_object(Object *object) {
             
             this->has_children = 1;
             this->object = NULL;
-            this->com->add(*object);
+            this->com = Object::add(this->com, *object);
         } else {
             this->object = object;
-            this->com = *object;
+            this->com = Object::add(this->com, *object);
         }
     }
 }
@@ -72,19 +73,19 @@ QuadTree::get_force_on_object(Object *object) {
     Point2D dr, result = point2d_zero();    
     if (!this->has_children) {
         if (this->object != object) {
-            result = object_calculate_force(*object, this->com);
+            result = Object::calculate_force(*object, this->com);
         }
     } else {
         s = MAX(this->bounds.size.x, this->bounds.size.y);
         dr = point2d_sub(object->position, this->com.position);
         d = point2d_length(dr);
         if ((s/d) < SD_TRESHOLD) {
-            result = object_calculate_force(*object, this->com);
+            result = Object::calculate_force(*object, this->com);
         } else {
             result = point2d_zero();
             for (int i = 0; i < 4; i++) {
                 if (this->children[i] != NULL) {
-                    result = point2d_add(result, get_force_on_object(this->children[i], object));
+                    result = point2d_add(result, this->children[i]->get_force_on_object(object));
                 }
             }
         }

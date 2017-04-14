@@ -8,11 +8,12 @@
 
 class SpaceModel {
 private:
+    
+
+public:
     RectangleD bounds;
     ObjectArray *objects;
     QuadTree *tree;
-
-public:
     SpaceModel(RectangleD bounds, size_t capacity);
 
     SpaceModel(RectangleD bounds, RectangleD galaxies_bounds, size_t n_galaxies,

@@ -19,7 +19,8 @@ Screen::Screen(int width, int height) {
     this->height = height;
     this->pixels = (RGBColor*)malloc(width * height * sizeof(RGBColor));
     if (!this->pixels) {
-        return NULL;
+        printf("unable to initialize pixels in Screen\n");
+        return;
     }
 }
 
@@ -32,8 +33,9 @@ Screen::~Screen() {
 /**
  * fill the screen with a specified color
  */
-Screen::void fill(RGBColor color) {
-    size_t i;
+void
+Screen::fill(RGBColor color) {
+    int i;
     for (i = 0; i < (this->width * this->height); i++) {
         this->pixels[i] = color;
     }
@@ -42,14 +44,17 @@ Screen::void fill(RGBColor color) {
 /**
  * screen display
  */
-Screen::void display() {
+void
+Screen::display() {
     //    glClear( GL_COLOR_BUFFER_BIT| GL_DEPTH_BUFFER_BIT);
     //    glLoadIdentity();
     glDrawPixels(this->width, this->height, GL_RGB, GL_FLOAT, this->pixels);
     glfwSwapBuffers();
 }
 
-Screen::void draw_darken_pixel_bw(int x, int y, float step) {
+
+void
+Screen::draw_darken_pixel_bw(int x, int y, float step) {
     if (x < 0 ||
             y < 0 ||
             x >= this->width ||
@@ -62,7 +67,8 @@ Screen::void draw_darken_pixel_bw(int x, int y, float step) {
     draw_set_pixel(x, y, rgbcolor_make(color, color, color));
 }
 
-Screen::void draw_lighten_pixel_bw(int x, int y, float step) {
+void
+Screen::draw_lighten_pixel_bw(int x, int y, float step) {
     if (x < 0 || y < 0 || x >= this->width || y >= this->height) {
         return;
     }
@@ -73,7 +79,8 @@ Screen::void draw_lighten_pixel_bw(int x, int y, float step) {
     draw_set_pixel(x, y, rgbcolor_make(color, color, color));
 }
 
-Screen::void draw_darken_pixel(int x, int y, float step) {
+void
+Screen::draw_darken_pixel(int x, int y, float step) {
     if (x < 0 ||
             y < 0 ||
             x >= this->width ||
@@ -90,7 +97,8 @@ Screen::void draw_darken_pixel(int x, int y, float step) {
     draw_set_pixel(x, y, color);
 }
 
-Screen::void draw_lighten_pixel(int x, int y, float step) {
+void
+Screen::draw_lighten_pixel(int x, int y, float step) {
     if (x < 0 ||
             y < 0 ||
             x >= this->width ||
@@ -107,7 +115,8 @@ Screen::void draw_lighten_pixel(int x, int y, float step) {
     draw_set_pixel(x, y, color);
 }
 
-Screen::GS_INLINE void draw_set_pixel(int x, int y, RGBColor color) {
+GS_INLINE void
+Screen::draw_set_pixel(int x, int y, RGBColor color) {
     if (x < 0 ||
             y < 0 ||
             x >= this->width ||
@@ -118,7 +127,8 @@ Screen::GS_INLINE void draw_set_pixel(int x, int y, RGBColor color) {
     this->pixels[index] = color;
 }
 
-Screen::GS_INLINE RGBColor draw_get_pixel(int x, int y) {
+GS_INLINE RGBColor
+Screen::draw_get_pixel(int x, int y) {
     if (x < 0 ||
             y < 0 ||
             x >= this->width ||
@@ -129,7 +139,8 @@ Screen::GS_INLINE RGBColor draw_get_pixel(int x, int y) {
     return this->pixels[index];
 }
 
-Screen::void draw_rectangle(RectangleI r, RGBColor color) {
+void
+Screen::draw_rectangle(RectangleI r, RGBColor color) {
     for (int x = r.origin.x; x < r.origin.x + r.size.x; x++) {
         for (int y = r.origin.y; y < r.origin.y + r.size.y; y++) {
             draw_set_pixel(x, y, color);
@@ -137,7 +148,8 @@ Screen::void draw_rectangle(RectangleI r, RGBColor color) {
     }
 }
 
-Screen::void draw_empty_rectangle(RectangleD rect, RGBColor color) {
+void
+Screen::draw_empty_rectangle(RectangleD rect, RGBColor color) {
     int x, y;
     Point2D end = point2d_add(rect.origin, rect.size);
     for (x = rect.origin.x; x < end.x; x++) {

@@ -7,11 +7,12 @@
 
 class Object {
 private:
+    
+
+public:
     Point2D position;
     Point2D speed;
     GS_FLOAT mass;
-
-public:
     /**
      * make an object with the specified position, speed and mass
      */
@@ -35,7 +36,7 @@ public:
     /**
      * calculating the sum of two objects, weighted by mass, return the new object
      */
-    static Object object_add(Object a, Object b);
+    static Object add(Object a, Object b);
 
     /**
      * calculate the force between object a and b
