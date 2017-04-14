@@ -19,10 +19,5 @@ For instance:
 You could also customize a lot of options using build_config.h file (such as G constant, sd treshold, max speed or max mass), but it requires rebuilding whole project.
 Have fun.
 
-## Screenshots
-![frist](screens/1.png)  
-![second](screens/2.png)  
-![third](screens/3.png)  
-
 ## License
 [The MIT License (MIT)](http://opensource.org/licenses/mit-license.php)
