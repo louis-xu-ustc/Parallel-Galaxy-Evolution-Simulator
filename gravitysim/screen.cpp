@@ -115,7 +115,7 @@ Screen::draw_lighten_pixel(int x, int y, float step) {
     draw_set_pixel(x, y, color);
 }
 
-GS_INLINE void
+void
 Screen::draw_set_pixel(int x, int y, RGBColor color) {
     if (x < 0 ||
             y < 0 ||
@@ -127,7 +127,7 @@ Screen::draw_set_pixel(int x, int y, RGBColor color) {
     this->pixels[index] = color;
 }
 
-GS_INLINE RGBColor
+RGBColor
 Screen::draw_get_pixel(int x, int y) {
     if (x < 0 ||
             y < 0 ||

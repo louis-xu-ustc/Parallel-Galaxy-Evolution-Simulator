@@ -2,9 +2,9 @@
 #define GravitySim_space_model_h
 
 #include <stdlib.h>
-#include "object_array.h"
 #include "object.h"
 #include "quad_tree.h"
+#include <vector>
 
 class SpaceModel {
 private:
@@ -12,7 +12,7 @@ private:
 
 public:
     RectangleD bounds;
-    ObjectArray *objects;
+    std::vector<Object> objects;
     QuadTree *tree;
     SpaceModel(RectangleD bounds, size_t capacity);
 

@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include "object.h"
 #include "screen.h"
-#include "object_array.h"
 #include "quad_tree.h"
+#include <vector>
 
 class SpaceView {
     private:
@@ -22,7 +22,7 @@ class SpaceView {
         SpaceView(RectangleD bounds);
         ~SpaceView();
         void clear();
-        void draw_objects(ObjectArray *objects);
+        void draw_objects(std::vector<Object> &objects);
         void draw_quadTree(QuadTree *tree);
         void display();
 };

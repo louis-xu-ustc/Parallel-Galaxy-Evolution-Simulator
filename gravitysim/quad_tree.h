@@ -3,8 +3,7 @@
 
 #include "basic_types.h"
 #include "object.h"
-#include "object_array.h"
-
+#include <vector>
 
 class QuadTree {
     private:
@@ -21,13 +20,13 @@ class QuadTree {
 
         ~QuadTree();
 
-        void add_objects(ObjectArray *objects);
+        void add_objects(std::vector<Object> &objects);
 
         void add_object(Object *object);
 
         Point2D get_force_on_object(Object *object);
 
-        void apply_to_objects(ObjectArray *objects, GS_FLOAT dt);
+        void apply_to_objects(std::vector<Object> &objects, GS_FLOAT dt);
 };
 
 #endif

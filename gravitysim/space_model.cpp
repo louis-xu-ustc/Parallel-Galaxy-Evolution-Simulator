@@ -12,11 +12,6 @@ SpaceModel::SpaceModel(RectangleD bounds, size_t capacity) {
         return;
     }
     // change to new syntax
-    this->objects = new ObjectArray(capacity);
-    if (this->objects == NULL) {
-        printf("unable to initialize ObjectArray in SpaceModel\n");
-        return;
-    }
     this->tree->add_objects(this->objects);
 }
 
@@ -47,17 +42,18 @@ SpaceModel::add_galaxy(Point2D position, GS_FLOAT size, size_t n) {
         distance = point2d_length(delta_pos);
         speed_vector = point2d_multiply(direction, distance); //yeah, that's primitive
         new_object.speed = point2d_rotate_90_ccw(speed_vector);
-        this->objects->add(new_object);
+        this->objects.push_back(new_object);
     }
 }
 
 void 
 SpaceModel::remove_objects_outside_bounds() {
-    size_t i;
-    for (i = 0; i < this->objects->len; i++) {
-        if (!point2d_is_in_rectangled(this->objects->objects[i].position, this->bounds)) {
-            this->objects->remove_object_at(i);
-            i--;
+    std::vector<Object>::iterator it = objects.begin();
+    while (it != objects.end()) {
+        if (!point2d_is_in_rectangled(it->position, this->bounds)) {
+            it = objects.erase(it);
+        } else {
+            ++it;
         }
     }
 }
@@ -69,8 +65,8 @@ SpaceModel::update(GS_FLOAT dt) {
     dt = CONST_TIME;
 #endif
     this->tree->apply_to_objects(this->objects, dt);
-    for (i = 0; i < this->objects->len; i++) {
-        this->objects->objects[i].update_position(dt);
+    for (i = 0; i < objects.size(); i++) {
+        objects[i].update_position(dt);
     }
     remove_objects_outside_bounds();
     delete this->tree;
@@ -79,6 +75,5 @@ SpaceModel::update(GS_FLOAT dt) {
 }
 
 SpaceModel::~SpaceModel() {
-    delete this->objects;
     delete this->tree;
 }

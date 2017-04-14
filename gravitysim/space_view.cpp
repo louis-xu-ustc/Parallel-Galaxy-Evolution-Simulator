@@ -45,11 +45,11 @@ SpaceView::clear() {
  * draw all the objects in the specified SpaceView
  */
 void
-SpaceView::draw_objects(ObjectArray *objects) {
+SpaceView::draw_objects(std::vector<Object> &objects) {
     size_t i;
     Point2D pos;
-    for (i = 0; i < objects->len; i++) {
-        pos = objects->objects[i].position;
+    for (i = 0; i < objects.size(); i++) {
+        pos = objects[i].position;
 #if BG_BLACK_FG_WHITE
 
 #if DRAW_SOLID

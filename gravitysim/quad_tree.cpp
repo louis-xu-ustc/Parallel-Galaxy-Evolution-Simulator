@@ -22,11 +22,11 @@ QuadTree::~QuadTree() {
 }
 
 void 
-QuadTree::add_objects(ObjectArray *objects) {
+QuadTree::add_objects(std::vector<Object> &objects) {
     size_t i;
-    for (i = 0; i < objects->len; i++) {
-        if (point2d_is_in_rectangled(objects->objects[i].position, this->bounds)) {
-            this->add_object(&objects->objects[i]);
+    for (i = 0; i < objects.size(); i++) {
+        if (point2d_is_in_rectangled(objects[i].position, this->bounds)) {
+            this->add_object(&objects[i]);
         }
     }
 }
@@ -94,11 +94,11 @@ QuadTree::get_force_on_object(Object *object) {
 }
 
 void 
-QuadTree::apply_to_objects(ObjectArray *objects, GS_FLOAT dt) {
+QuadTree::apply_to_objects(std::vector<Object> &objects, GS_FLOAT dt) {
     size_t i;
     Object *object;
-    for (i = 0; i < objects->len; i++) {
-        object = &objects->objects[i];
+    for (i = 0; i < objects.size(); i++) {
+        object = &objects[i];
         Point2D acc = get_force_on_object(object);
         Point2D dv = point2d_multiply(acc, dt);
         object->speed = point2d_add(object->speed, dv);
