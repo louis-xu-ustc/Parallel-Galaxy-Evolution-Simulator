@@ -7,17 +7,17 @@
 #include "SpaceController.h"
 #include "build_config.h"
 #include "SpaceModel.h"
-#include "perf.h"
+#include "Perf.h"
+#include "Report.h"
 
 
 #define WINDOW_TITLE "GravitySim"
 #define SUCCESS 0
 #define FAILURE 1
 
-static perf_t *p = NULL;
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
-bool execute_model(SpaceController *controller, SpaceModel *model);
+bool execute_model(SpaceController *controller, SpaceModel *model, Perf *perf);
 void print_usage(const char *program_name);
 SimulationConfig get_config(int argc, const char *argv[]);
 
@@ -32,29 +32,43 @@ int main(int argc, const char * argv[]) {
     SpaceController *controller = new SpaceController(config);
     controller->generate_objects(config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
 
+    Report *report = new Report();
     SpaceModel *seqBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
     
     // TODO
     // SpaceModel *cudaBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    // Perf *cudaBarnesPerf = new Perf(config.loop_times, "cudaBarnes");
     // SpaceModel *seqFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    // Perf *seqFMMPerf = new Perf(config.loop_times, "seqFMMPerf");
     // SpaceModel *cudaFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    // Perf *cudaFMMPerf = new Perf(config.loop_times, "cudaFMMPerf");
 
     if (!controller) {
         return FAILURE;
     }
-    p = perf_init(config.loop_times, "reference");
 
+    // seqBarnes
     while (loop) {
-        loop = execute_model(controller, seqBarnesHutModel);
+        loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
     }
-    perf_report(p);
-    perf_deinit(p);
+    report->addReport(*seqBarnesPerf);
+    // cudaBarnes
+    // while (loop) {
+    //     loop = execute_model(controller, seqBarnesHutModel, cudaBarnesPerf);
+    // }
+    // report->addReport(*cudaBarnesPerf);
+    
+    // seqFMM
+    // cudaFMM
+
+    report->showReport();
     // close gl after all things done
     gl_close();
     return SUCCESS;
 }
 
-bool execute_model(SpaceController *controller, SpaceModel *model) {
+bool execute_model(SpaceController *controller, SpaceModel *model, Perf *perf) {
     GS_FLOAT old_time = glfwGetTime();
     GS_FLOAT current_time;
     GS_FLOAT dt;
@@ -66,7 +80,7 @@ bool execute_model(SpaceController *controller, SpaceModel *model) {
         
         if(glfwGetKey(GLFW_KEY_ESC) || !glfwGetWindowParam(GLFW_OPENED) ||
                 cnt >= controller->get_loop_times()) {
-            perf_update(p, cnt);
+            Perf::update(cnt, perf);
             return false;
         }
         controller->update(dt, model);
