@@ -1,12 +1,4 @@
-//
-//  space_view.c
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 24.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
-#include "space_view.h"
+#include "SpaceView.h"
 #include "glfw.h"
 #include "build_config.h"
 #include <stdio.h>

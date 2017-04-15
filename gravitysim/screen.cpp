@@ -1,15 +1,7 @@
-//
-//  screen.c
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 23.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #include <stdlib.h>
 #include "glfw.h"
 #include "build_config.h"
-#include "screen.h"
+#include "Screen.h"
 
 /**
  * init a screen with specified width and height

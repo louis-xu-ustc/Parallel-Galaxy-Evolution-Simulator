@@ -1,11 +1,3 @@
-//
-//  graphic_types.c
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 23.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #include <stdlib.h>
 
 #include "basic_types.h"

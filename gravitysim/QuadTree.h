@@ -2,7 +2,7 @@
 #define GravitySim_QuadTree_h
 
 #include "basic_types.h"
-#include "object.h"
+#include "Object.h"
 #include <vector>
 
 class QuadTree {

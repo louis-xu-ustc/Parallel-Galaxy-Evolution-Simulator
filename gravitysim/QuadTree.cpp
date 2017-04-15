@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
-#include "quad_tree.h"
+#include "QuadTree.h"
 #include "build_config.h"
 #include "log.h"
 

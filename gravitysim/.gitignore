@@ -3,3 +3,5 @@ gravitysim
 .DS_Store
 tags
 cscope*
+
+gravitysim.dSYM

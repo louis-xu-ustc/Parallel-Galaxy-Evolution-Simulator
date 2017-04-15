@@ -1,16 +1,9 @@
-//
-//  space_controller.h
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 24.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #ifndef GravitySim_space_controller_h
 #define GravitySim_space_controller_h
 
-#include "space_view.h"
-#include "space_model.h"
+#include "SpaceView.h"
+#include "SpaceModel.h"
+#include "Object.h"
 
 typedef struct {
     size_t loop_times;
@@ -25,12 +18,16 @@ class SpaceController {
     private:
         size_t loop_times;
         SpaceView *view;
-        SpaceModel *model;
+        std::vector<Object> objects;
 
     public:
         size_t get_loop_times();
         SpaceController(SimulationConfig config);
         ~SpaceController();
-        void update(GS_FLOAT dt);
+        void update(GS_FLOAT dt, SpaceModel *model);
+        void generate_objects(RectangleD galaxies_bounds, size_t n_galaxies,
+                                 size_t objects_per_galaxy, GS_FLOAT galaxy_size);
+        void add_galaxy(Point2D position, GS_FLOAT size, size_t n);
+        std::vector<Object>& get_objects();
 };
 #endif

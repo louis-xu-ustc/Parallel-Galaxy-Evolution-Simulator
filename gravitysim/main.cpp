@@ -1,20 +1,14 @@
-//
-//  main.c
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 23.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "glfw.h"
 #include <time.h>
-#include "screen.h"
+#include "Screen.h"
 #include "basic_types.h"
-#include "space_controller.h"
+#include "SpaceController.h"
 #include "build_config.h"
+#include "SpaceModel.h"
 #include "perf.h"
+
 
 #define WINDOW_TITLE "GravitySim"
 #define SUCCESS 0
@@ -23,9 +17,10 @@
 static perf_t *p = NULL;
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
-bool main_loop(SpaceController *controller);
+bool execute_model(SpaceController *controller, SpaceModel *model);
 void print_usage(const char *program_name);
 SimulationConfig get_config(int argc, const char *argv[]);
+
 
 int main(int argc, const char * argv[]) {
     bool loop = true;
@@ -35,13 +30,22 @@ int main(int argc, const char * argv[]) {
     }
     SimulationConfig config = get_config(argc, argv);
     SpaceController *controller = new SpaceController(config);
+    controller->generate_objects(config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
+
+    SpaceModel *seqBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    
+    // TODO
+    // SpaceModel *cudaBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    // SpaceModel *seqFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    // SpaceModel *cudaFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
+
     if (!controller) {
         return FAILURE;
     }
     p = perf_init(config.loop_times, "reference");
 
     while (loop) {
-        loop = main_loop(controller);
+        loop = execute_model(controller, seqBarnesHutModel);
     }
     perf_report(p);
     perf_deinit(p);
@@ -50,7 +54,7 @@ int main(int argc, const char * argv[]) {
     return SUCCESS;
 }
 
-bool main_loop(SpaceController *controller) {
+bool execute_model(SpaceController *controller, SpaceModel *model) {
     GS_FLOAT old_time = glfwGetTime();
     GS_FLOAT current_time;
     GS_FLOAT dt;
@@ -65,7 +69,7 @@ bool main_loop(SpaceController *controller) {
             perf_update(p, cnt);
             return false;
         }
-        controller->update(dt);
+        controller->update(dt, model);
         old_time = current_time;
         cnt++;
     }

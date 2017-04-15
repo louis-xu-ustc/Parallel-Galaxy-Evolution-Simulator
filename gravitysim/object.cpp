@@ -1,6 +1,6 @@
 #include <math.h>
 #include <stdlib.h>
-#include "object.h"
+#include "Object.h"
 #include "build_config.h"
 
 

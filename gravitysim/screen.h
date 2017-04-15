@@ -1,11 +1,3 @@
-//
-//  screen.h
-//  GravitySim
-//
-//  Created by Krzysztof Gabis on 23.01.2013.
-//  Copyright (c) 2013 Krzysztof Gabis. All rights reserved.
-//
-
 #ifndef GravitySim_screen_h
 #define GravitySim_screen_h
 
