@@ -6,9 +6,10 @@
 #include "basic_types.h"
 #include "SpaceController.h"
 #include "build_config.h"
-#include "SpaceModel.h"
+// #include "SpaceModel.h"
 #include "Perf.h"
 #include "Report.h"
+#include "BHSpaceModel.h"
 
 
 #define WINDOW_TITLE "GravitySim"
@@ -33,7 +34,7 @@ int main(int argc, const char * argv[]) {
     controller->generate_objects(config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
 
     Report *report = new Report();
-    SpaceModel *seqBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
+    SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects());
     Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
     
     // TODO

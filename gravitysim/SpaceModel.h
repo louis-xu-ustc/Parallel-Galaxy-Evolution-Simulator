@@ -9,11 +9,9 @@
 class SpaceModel {
 private:
     
-
 public:
     RectangleD bounds;
     std::vector<Object> objects;
-    QuadTree *tree;
     SpaceModel(RectangleD bounds, std::vector<Object> &objects);
 
     ~SpaceModel();
@@ -22,7 +20,7 @@ public:
 
     void remove_objects_outside_bounds();
 
-    void update(GS_FLOAT dt);
+    virtual void update(GS_FLOAT dt);
 };
 
 #endif
