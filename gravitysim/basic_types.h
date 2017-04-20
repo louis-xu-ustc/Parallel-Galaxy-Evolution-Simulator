@@ -13,6 +13,7 @@
 
 #include "build_config.h"
 #include <math.h>
+#include <algorithm>
 
 typedef struct {
     int x;
@@ -146,6 +147,92 @@ static GS_INLINE RGBColor rgbcolor_make(float red, float green, float blue) {
     color.green = green;
     color.blue = blue;
     return color;
+}
+
+static GS_INLINE Point2D point2d_unit_square(Point2D p, RectangleD rect) {
+    return point2d_make((p.x - rect.origin.x) / rect.size.x, (p.y - rect.origin.y) / rect.size.y);
+}
+
+/**
+ * Expands a 10-bit integer into 30 bits by inserting 2 zeros after each bit
+ * [Referece] https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
+ */
+static GS_INLINE unsigned int expandBits(unsigned int v) {
+    v = (v * 0x00010001u) & 0xFF0000FFu;
+    v = (v * 0x00000101u) & 0x0F00F00Fu;
+    v = (v * 0x00000011u) & 0xC30C30C3u;
+    v = (v * 0x00000005u) & 0x49249249u;
+    return v;
+}
+
+/**
+ * Calculates a 30-bit Morton code for the given 2D point located within the unit square [0,1].
+ */
+static GS_INLINE unsigned int mortan2D(GS_FLOAT x, GS_FLOAT y, RectangleD rect) {
+    GS_FLOAT xx = std::min(std::max(x * rect.size.x, 0.0f), rect.size.x - 1);
+    GS_FLOAT yy = std::min(std::max(y * rect.size.y, 0.0f), rect.size.y - 1);
+    unsigned int e_xx = expandBits((unsigned int)xx);
+    unsigned int e_yy = expandBits((unsigned int)yy);
+    return 2 * e_xx + e_yy;
+}
+
+/**
+ * This algorithm uses a hybrid approach of bi-section to find out which 8-bit chunk of the 32-bit number contains the first 1-bit, which is followed by a lookup table clz_lkup[] to find the first 1-bit within the byte
+ * [Referece] http://embeddedgurus.com/state-space/2014/09/fast-deterministic-and-portable-counting-leading-zeros/
+ */
+static GS_INLINE uint32_t CLZ(uint32_t x) {
+    static uint8_t const clz_lkup[] = {
+        32U, 31U, 30U, 30U, 29U, 29U, 29U, 29U,
+        28U, 28U, 28U, 28U, 28U, 28U, 28U, 28U,
+        27U, 27U, 27U, 27U, 27U, 27U, 27U, 27U,
+        27U, 27U, 27U, 27U, 27U, 27U, 27U, 27U,
+        26U, 26U, 26U, 26U, 26U, 26U, 26U, 26U,
+        26U, 26U, 26U, 26U, 26U, 26U, 26U, 26U,
+        26U, 26U, 26U, 26U, 26U, 26U, 26U, 26U,
+        26U, 26U, 26U, 26U, 26U, 26U, 26U, 26U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        25U, 25U, 25U, 25U, 25U, 25U, 25U, 25U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
+        24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U
+    };
+    uint32_t n;
+    if (x >= (1U << 16)) {
+        if (x >= (1U << 24)) {
+            n = 24U;
+        }
+        else {
+            n = 16U;
+        }
+    }
+    else {
+        if (x >= (1U << 8)) {
+            n = 8U;
+        }
+        else {
+            n = 0U;
+        }
+    }
+    return (uint32_t)clz_lkup[x >> n] - n;
 }
 
 #endif

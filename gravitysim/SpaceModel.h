@@ -2,9 +2,8 @@
 #define GravitySim_space_model_h
 
 #include <stdlib.h>
-#include "Object.h"
-#include "QuadTree.h"
 #include <vector>
+#include "Object.h"
 
 class SpaceModel {
 private:

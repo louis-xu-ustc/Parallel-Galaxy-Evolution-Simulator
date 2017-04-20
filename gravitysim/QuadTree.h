@@ -7,7 +7,6 @@
 
 class QuadTree {
     private:
-        
 
     public:
         QuadTree *children[4]; // four children
