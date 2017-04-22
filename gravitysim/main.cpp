@@ -10,6 +10,7 @@
 #include "Perf.h"
 #include "Report.h"
 #include "BHSpaceModel.h"
+#include "cudaBHSpaceModel.h"
 
 
 #define WINDOW_TITLE "GravitySim"
@@ -38,8 +39,8 @@ int main(int argc, const char * argv[]) {
     Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
     
     // TODO
-    // SpaceModel *cudaBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
-    // Perf *cudaBarnesPerf = new Perf(config.loop_times, "cudaBarnes");
+    SpaceModel *cudaBarnesHutModel = new cudaBHSpaceModel(config.model_bounds, controller->get_objects());
+    Perf *cudaBarnesPerf = new Perf(config.loop_times, "cudaBarnes");
     // SpaceModel *seqFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
     // Perf *seqFMMPerf = new Perf(config.loop_times, "seqFMMPerf");
     // SpaceModel *cudaFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
@@ -55,10 +56,10 @@ int main(int argc, const char * argv[]) {
     }
     report->addReport(*seqBarnesPerf);
     // cudaBarnes
-    // while (loop) {
-    //     loop = execute_model(controller, seqBarnesHutModel, cudaBarnesPerf);
-    // }
-    // report->addReport(*cudaBarnesPerf);
+    while (loop) {
+        loop = execute_model(controller, cudaBarnesHutModel, cudaBarnesPerf);
+    }
+    report->addReport(*cudaBarnesPerf);
     
     // seqFMM
     // cudaFMM
@@ -134,6 +135,7 @@ SimulationConfig get_config(int argc, const char *argv[]) {
 
     config.loop_times = atoi(argv[1]);
     config.galaxies_n = atoi(argv[2]);
+    printf("galaxies_n = %zu\n", config.galaxies_n);
     config.objects_n = atoi(argv[3]);
     config.galaxy_size = atoi(argv[4]);
     return config;
