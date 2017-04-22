@@ -189,17 +189,16 @@ __launch_bounds__(THREADS2, FACTOR2)
 void TreeBuildingKernel()
 {
   register int i, j, k, depth, localmaxdepth, skip, inc;
-  register float x, y, z, r;
-  register float px, py, pz;
+  register float x, y, r;
+  register float px, py;
   register int ch, n, cell, locked, patch;
-  register float radius, rootx, rooty, rootz;
+  register float radius, rootx, rooty;
 
   // cache root data
   radius = radiusd;
   // nnodesd is the number of 
   rootx = posxd[nnodesd];
   rooty = posyd[nnodesd];
-  rootz = poszd[nnodesd];
 
   localmaxdepth = 1;
   skip = 1;
@@ -219,7 +218,6 @@ void TreeBuildingKernel()
       skip = 0;
       px = posxd[i];
       py = posyd[i];
-      pz = poszd[i];
       n = nnodesd;
       depth = 1;
       r = radius;
@@ -344,12 +342,18 @@ void SummarizationKernel()
   register float m, cm, px, py, pz;
   __shared__ volatile int child[THREADS3 * 8];
 
+  // comment: yes, start from the bottom
   bottom = bottomd;
+  // comment: inc is the stride width of the cuda thread
   inc = blockDim.x * gridDim.x;
   k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
-  if (k < bottom) k += inc;
+  // comment: make sure k is 
+  if (k < bottom)
+    k += inc;
 
+  // comment: 
   missing = 0;
+  // comment: notice that actions are conducted on cells
   // iterate over all cells assigned to thread
   while (k <= nnodesd) {
     if (missing == 0) {
@@ -357,16 +361,16 @@ void SummarizationKernel()
       cm = 0.0f;
       px = 0.0f;
       py = 0.0f;
-      pz = 0.0f;
       cnt = 0;
       j = 0;
-      for (i = 0; i < 8; i++) {
-        ch = childd[k*8+i];
+      for (i = 0; i < 4; i++) {
+        ch = childd[k*4+i];
+        // comment: if this child is not null pointer
         if (ch >= 0) {
           if (i != j) {
             // move children to front (needed later for speed)
-            childd[k*8+i] = -1;
-            childd[k*8+j] = ch;
+            childd[k*4+i] = -1;
+            childd[k*4+j] = ch;
           }
           child[missing*THREADS3+threadIdx.x] = ch;  // cache missing children
           m = massd[ch];
@@ -381,7 +385,6 @@ void SummarizationKernel()
             cm += m;
             px += posxd[ch] * m;
             py += posyd[ch] * m;
-            pz += poszd[ch] * m;
           }
           j++;
         }
@@ -755,8 +758,10 @@ int main(int argc, char *argv[])
     // comment: since nbodies are leaf nodes, the total number should be less than this since *2 is 
     // for that of binary tree and we are now actually using quadtree
     nnodes = nbodies * 2;
-    if (nnodes < 1024*blocks) nnodes = 1024*blocks;
-    while ((nnodes & (WARPSIZE-1)) != 0) nnodes++;
+    if (nnodes < 1024*blocks) 
+      nnodes = 1024*blocks;
+    while ((nnodes & (WARPSIZE-1)) != 0) 
+      nnodes++;
     nnodes--;
 
     timesteps = atoi(argv[2]);
@@ -770,6 +775,7 @@ int main(int argc, char *argv[])
       fprintf(stderr, "nodes = %d\n", nnodes+1);
       fprintf(stderr, "configuration: %d bodies, %d time steps\n", nbodies, timesteps);
 
+      // comment: these arrays are only for bodies
       mass = (float *)malloc(sizeof(float) * nbodies);
       if (mass == NULL) {fprintf(stderr, "cannot allocate mass\n");  exit(-1);}
       posx = (float *)malloc(sizeof(float) * nbodies);
@@ -786,7 +792,7 @@ int main(int argc, char *argv[])
       if (velz == NULL) {fprintf(stderr, "cannot allocate velz\n");  exit(-1);}
 
       if (cudaSuccess != cudaMalloc((void **)&errl, sizeof(int))) fprintf(stderr, "could not allocate errd\n");  CudaTest("couldn't allocate errd");
-      if (cudaSuccess != cudaMalloc((void **)&childl, sizeof(int) * (nnodes+1) * 8)) fprintf(stderr, "could not allocate childd\n");  CudaTest("couldn't allocate childd");
+      if (cudaSuccess != cudaMalloc((void **)&childl, sizeof(int) * (nnodes+1) * 4)) fprintf(stderr, "could not allocate childd\n");  CudaTest("couldn't allocate childd");
       if (cudaSuccess != cudaMalloc((void **)&massl, sizeof(float) * (nnodes+1))) fprintf(stderr, "could not allocate massd\n");  CudaTest("couldn't allocate massd");
       if (cudaSuccess != cudaMalloc((void **)&posxl, sizeof(float) * (nnodes+1))) fprintf(stderr, "could not allocate posxd\n");  CudaTest("couldn't allocate posxd");
       if (cudaSuccess != cudaMalloc((void **)&posyl, sizeof(float) * (nnodes+1))) fprintf(stderr, "could not allocate posyd\n");  CudaTest("couldn't allocate posyd");
@@ -886,7 +892,7 @@ int main(int argc, char *argv[])
 
     // run timesteps (lauch GPU kernels)
 
-    cudaEventCreate(&start);  cudaEventCreate(&stop);  
+    cudaEventCreate(&start);  cudaEventCreate(&stop);
     starttime = clock();
     cudaEventRecord(start, 0);
     InitializationKernel<<<1, 1>>>();
