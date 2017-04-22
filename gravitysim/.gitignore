@@ -5,3 +5,4 @@ tags
 cscope*
 
 gravitysim.dSYM
+*.o

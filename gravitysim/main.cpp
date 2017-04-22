@@ -35,8 +35,8 @@ int main(int argc, const char * argv[]) {
     controller->generate_objects(config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
 
     Report *report = new Report();
-    SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects());
-    Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
+    // SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects());
+    // Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
     
     // TODO
     SpaceModel *cudaBarnesHutModel = new cudaBHSpaceModel(config.model_bounds, controller->get_objects());
@@ -51,10 +51,10 @@ int main(int argc, const char * argv[]) {
     }
 
     // seqBarnes
-    while (loop) {
-        loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
-    }
-    report->addReport(*seqBarnesPerf);
+    // while (loop) {
+    //     loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
+    // }
+    // report->addReport(*seqBarnesPerf);
     // cudaBarnes
     while (loop) {
         loop = execute_model(controller, cudaBarnesHutModel, cudaBarnesPerf);

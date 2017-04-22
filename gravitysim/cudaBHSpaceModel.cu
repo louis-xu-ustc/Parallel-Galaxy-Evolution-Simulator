@@ -1,4 +1,6 @@
 #include "cudaBHSpaceModel.h"
+#include <stdio.h>
+#include "cuda.h"
 
 
 cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objects) 
@@ -11,7 +13,7 @@ cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objec
 }
 
 
-__global__ void 
+__host__ void 
 cudaBHSpaceModel::update(GS_FLOAT dt) {
     size_t i;
 #ifdef CONST_TIME
@@ -22,10 +24,22 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
         objects[i].update_position(dt);
     }
     remove_objects_outside_bounds();
+
+
     delete this->tree;
     this->tree = new QuadTree(this->bounds);
-    this->tree->add_objects(this->objects);    
+    this->tree->add_objects(this->objects);
+
+    // transfer tree to device
+
 }
+
+
+__device__ void
+ParaGenImplicitTreeKernel() {
+
+}
+
 
 cudaBHSpaceModel::~cudaBHSpaceModel() {
     delete this->tree;
