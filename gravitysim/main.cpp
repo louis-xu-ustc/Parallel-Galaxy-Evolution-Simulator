@@ -6,10 +6,10 @@
 #include "basic_types.h"
 #include "SpaceController.h"
 #include "build_config.h"
-// #include "SpaceModel.h"
 #include "Perf.h"
 #include "Report.h"
 #include "BHSpaceModel.h"
+#include "MortonSpaceModel.h"
 
 
 #define WINDOW_TITLE "GravitySim"
@@ -34,9 +34,14 @@ int main(int argc, const char * argv[]) {
     controller->generate_objects(config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
 
     Report *report = new Report();
+#if 1
     SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects());
     Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
-    
+#endif
+
+    SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects());
+    Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
+
     // TODO
     // SpaceModel *cudaBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
     // Perf *cudaBarnesPerf = new Perf(config.loop_times, "cudaBarnes");
@@ -49,11 +54,21 @@ int main(int argc, const char * argv[]) {
         return FAILURE;
     }
 
+#if 1
     // seqBarnes
     while (loop) {
         loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
     }
     report->addReport(*seqBarnesPerf);
+#endif
+
+    // seqMorton
+    loop = true;
+    while (loop) {
+        loop = execute_model(controller, seqMortonModel, seqMortonPerf); 
+    }
+    report->addReport(*seqMortonPerf);
+
     // cudaBarnes
     // while (loop) {
     //     loop = execute_model(controller, seqBarnesHutModel, cudaBarnesPerf);

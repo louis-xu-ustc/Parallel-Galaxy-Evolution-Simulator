@@ -111,6 +111,10 @@ class MortonTree {
         Point2D getForceOnObject(int obj_idx);
         // update all the objects' speed
         void applyToObjects(GS_FLOAT dt);
+        // traverse the tree
+        void traverseCells();
+        // traverse the objects
+        void traverseObjects();
 };
 
 #endif
