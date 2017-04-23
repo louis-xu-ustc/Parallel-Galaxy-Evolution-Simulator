@@ -153,6 +153,30 @@ static GS_INLINE Point2D point2d_unit_square(Point2D p, RectangleD rect) {
     return point2d_make((p.x - rect.origin.x) / rect.size.x, (p.y - rect.origin.y) / rect.size.y);
 }
 
+static GS_INLINE RectangleD rectangled_incr_bound(RectangleD rect, Point2D pos) {
+    Point2D lower = rect.origin;
+    Point2D upper = point2d_add(lower, rect.size);
+    if (pos.x < lower.x) {
+        lower.x = pos.x;
+    }
+    if (pos.y < lower.y) {
+        lower.y = pos.y;
+    }
+    if (pos.x > upper.x) {
+        upper.x = pos.x;
+    }
+    if (pos.y > upper.y) {
+        upper.y = pos.y;
+    }
+    unsigned int size_x = upper.x - lower.x;
+    unsigned int size_y = upper.y - lower.y;
+    return rectangled_make(lower.x, lower.y, size_x, size_y);
+}
+
+static GS_INLINE RectangleD rectangled_incr_bound(Point2D pos) {
+    return rectangled_make(pos.x, pos.y, 0, 0);
+}
+
 /**
  * Expands a 10-bit integer into 30 bits by inserting 2 zeros after each bit
  * [Referece] https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
@@ -167,6 +191,7 @@ static GS_INLINE unsigned int expandBits(unsigned int v) {
 
 /**
  * Calculates a 30-bit Morton code for the given 2D point located within the unit square [0,1].
+ * [Referece] https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
  */
 static GS_INLINE unsigned int mortan2D(GS_FLOAT x, GS_FLOAT y, RectangleD rect) {
     GS_FLOAT xx = std::min(std::max(x * rect.size.x, 0.0f), rect.size.x - 1);
@@ -233,6 +258,54 @@ static GS_INLINE uint32_t CLZ(uint32_t x) {
         }
     }
     return (uint32_t)clz_lkup[x >> n] - n;
+}
+
+/**
+ * get the level mask used for constructing an OrcTree
+ */
+static GS_INLINE unsigned int get_level_mask(int level) {
+    if (level < 0) {
+        printf("Invalid level for the tree");
+        return 0x00000000u;
+    }
+
+    unsigned int res;
+    switch (level) {
+        case 0:
+            res = 0x00000000u;
+            break;
+        case 1:
+            res = 0x38000000u;
+            break;
+        case 2:
+            res = 0x3F000000u;
+            break;
+        case 3:
+            res = 0x3FE00000u;
+            break;
+        case 4:
+            res = 0x3FFC0000u;
+            break;
+        case 5:
+            res = 0x3FFF8000u;
+            break;
+        case 6:
+            res = 0x3FFFF000u;
+            break;
+        case 7:
+            res = 0x3FFFFE00u;
+            break;
+        case 8:
+            res = 0x3FFFFFC0u;
+            break;
+        case 9:
+            res = 0x3FFFFFF8u;
+            break;
+        default:                // level >= 10
+            res = 0x3FFFFFFFu;
+            break;
+    }
+    return res;
 }
 
 #endif
