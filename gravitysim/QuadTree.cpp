@@ -114,6 +114,8 @@ QuadTree::apply_to_objects(std::vector<Object> &objects, GS_FLOAT dt) {
         object = &objects[i];
         Point2D acc = get_force_on_object(object);
         Point2D dv = point2d_multiply(acc, dt);
+        //printf("pos.x:%f, pos.y:%f, acc.x:%f, acc.y:%f, dv.x:%f, dv.y:%f\n", 
+        //        object->position.x, object->position.y, acc.x, acc.y, dv.x, dv.y);
         object->speed = point2d_add(object->speed, dv);
     }
     LEAVE();
