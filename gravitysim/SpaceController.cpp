@@ -15,6 +15,7 @@ SpaceController::SpaceController(SimulationConfig config) {
 void
 SpaceController::update(GS_FLOAT dt, SpaceModel *model) {
     static GS_FLOAT last_update_time = 0.0;
+    printf("before calling update\n");
     model->update(dt);
     last_update_time += dt;
     if (last_update_time >= (1.0 / MAX_FPS)) {

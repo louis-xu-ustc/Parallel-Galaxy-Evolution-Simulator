@@ -38,7 +38,7 @@ Author: Martin Burtscher
 #include <cuda.h>
 
 
-// thread count
+// thread count for a block
 #define THREADS1 512  /* must be a power of 2 */
 #define THREADS2 1024
 #define THREADS3 1024
@@ -200,6 +200,7 @@ void TreeBuildingKernel()
   rootx = posxd[nnodesd];
   rooty = posyd[nnodesd];
 
+  // comments: why need recording depth at all??
   localmaxdepth = 1;
   skip = 1;
   inc = blockDim.x * gridDim.x;
@@ -219,8 +220,10 @@ void TreeBuildingKernel()
       px = posxd[i];
       py = posyd[i];
       n = nnodesd;
+      // comment: the depth 
       depth = 1;
       r = radius;
+      // comment: j is the index of children (of a node)
       j = 0;
       // determine which child to follow
       // comment: left up - 2; right up - 3; left down - 0; right down - 1
@@ -233,11 +236,14 @@ void TreeBuildingKernel()
     // comment: since every node can have at most 4 children, we allocate the most space for them
     // comment: this is for convenience of traversal
     // comment: ch is the value of that child node, possibly pointing to another node, possibly just -1 (null pointer)
+    // comment: if didin't skip, this should point to children of root node
+    // comment: if did skip, it probably point to something else
     ch = childd[n*4+j];
     // comment: in some code sections, we need to find out whether an index refers to a body or to null. Because −1 is also smaller than the number of bodies, a single integer comparison suffices to test both conditions.
-    // comment: if ch >= nbodiesd, the child already points to a body
+    // comment: if ch >= nbodiesd, the child already points to a cell, then go find some place in its children
     while (ch >= nbodiesd) {
       n = ch;
+      // find it in the next level
       depth++;
       r *= 0.5f;
       // comment: reset j
@@ -254,10 +260,10 @@ void TreeBuildingKernel()
     if (ch != -2) {
       // comment: if it is not locked, try to lock it
       locked = n*4+j;
-      // try to lock. However, it is still possible to fail because of race condition
+      // try to lock. However, it is still possible to fail because of contention
       // comments: if fail, also try again later
       if (ch == atomicCAS((int *)&childd[locked], ch, -2)) {
-        if (ch == -1) { // if null, just insert the new body
+        if (ch == -1) { // if it is a null pointer, just insert the new body
           childd[locked] = i;
         } else {  // there already is a body in this position
           patch = -1;
@@ -269,6 +275,7 @@ void TreeBuildingKernel()
 
             // comment: the new cell is "allocated" from the bottom, according to the thesis
             // comment: remember that this is not actual allocation. it is like assignment 2/3
+            // comment: cell is the index of the new cell
             cell = atomicSub((int *)&bottomd, 1) - 1;
             if (cell <= nbodiesd) {
               // comment: cells + bodies should be less than the size of the array
@@ -284,6 +291,8 @@ void TreeBuildingKernel()
             r *= 0.5f;
 
             // comment: mass will be calculated in the summarization kernel later on?
+            // comment: here we insert the new cell to the end of asd
+            // comment: Initially, all cells have negative masses, indicating that their true masses still need to be computed.
             massd[cell] = -1.0f;
             startd[cell] = -1;
             x = posxd[cell] = posxd[n] - r + x;
@@ -320,6 +329,7 @@ void TreeBuildingKernel()
 
         localmaxdepth = max(depth, localmaxdepth);
         i += inc;  // move on to next body
+        // comment: for another body, will have to start all over again
         skip = 1;
       }
     }
@@ -340,45 +350,58 @@ void SummarizationKernel()
 {
   register int i, j, k, ch, inc, missing, cnt, bottom;
   register float m, cm, px, py, pz;
-  __shared__ volatile int child[THREADS3 * 8];
+  __shared__ volatile int child[THREADS3 * 4];
 
-  // comment: yes, start from the bottom
+  // comment: traverse from bottom to nnodesd
+  // comment: bottom-up searching
   bottom = bottomd;
   // comment: inc is the stride width of the cuda thread
   inc = blockDim.x * gridDim.x;
   k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
-  // comment: make sure k is 
   if (k < bottom)
     k += inc;
 
-  // comment: 
+  // comment: at the start, no children is missing
   missing = 0;
   // comment: notice that actions are conducted on cells
   // iterate over all cells assigned to thread
   while (k <= nnodesd) {
     if (missing == 0) {
       // new cell, so initialize
+      // comment: cm is short for cumulative mass
       cm = 0.0f;
+      // comment: the cumulative position x and y
       px = 0.0f;
       py = 0.0f;
+      // comment: cnt is for storing the number of all sub-node of this node
       cnt = 0;
+      // comment: j refers to the number of non-null-pointer children
       j = 0;
+      // comment: traverse its four children
       for (i = 0; i < 4; i++) {
         ch = childd[k*4+i];
-        // comment: if this child is not null pointer
+        // comment: if this child is not null pointer (may be a cell or a body)
         if (ch >= 0) {
+          // comment: this happens when some children is found to be null pointer
+          // commnet: because j is only incremented when a non-null-pointer children is found
+          // comment: when they are not equal, j should always be smaller than i
           if (i != j) {
+            // comment: 
             // move children to front (needed later for speed)
             childd[k*4+i] = -1;
             childd[k*4+j] = ch;
           }
           child[missing*THREADS3+threadIdx.x] = ch;  // cache missing children
           m = massd[ch];
+          // comment: assume the mass of the child is not ready yet -> missing++
           missing++;
           if (m >= 0.0f) {
-            // child is ready
+            // comment: if child is ready -> missing--
             missing--;
+            // comment: if the computed child is a cell
             if (ch >= nbodiesd) {  // count bodies (needed later)
+              // comment: countd is for storing the number of sub-nodes of a node
+              // comment: the storing can only be done only when all sub-nodes are computed
               cnt += countd[ch] - 1;
             }
             // add child's contribution
@@ -392,6 +415,7 @@ void SummarizationKernel()
       cnt += j;
     }
 
+    // comment: some children are still not computed
     if (missing != 0) {
       do {
         // poll missing child
@@ -440,15 +464,23 @@ void SortKernel()
   register int i, k, ch, dec, start, bottom;
 
   bottom = bottomd;
+  // comment: stride, just like inc 
   dec = blockDim.x * gridDim.x;
   k = nnodesd + 1 - dec + threadIdx.x + blockIdx.x * blockDim.x;
 
   // iterate over all cells assigned to thread
   while (k >= bottom) {
+    // comment: the startd is used to signify the boundary in the sortd array
+    // comment: it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
     start = startd[k];
+    // comment: this is quite like kernel 3, if the start is still -1, it keeps polling until the start is ready
+    // comment: at the start, only root is able to compute because only its start is not -1 (it is 0)
+    // comment: start serves both purpose, one is for signify whether it can start, another is for signify the area it puts its elements
     if (start >= 0) {
-      for (i = 0; i < 8; i++) {
-        ch = childd[k*8+i];
+      // comment: traverse from left child to right child
+      for (i = 0; i < 4; i++) {
+        // comment: iterate through the children of the cell
+        ch = childd[k*4+i];
         if (ch >= nbodiesd) {
           // child is a cell
           startd[ch] = start;  // set start ID of child
@@ -600,19 +632,15 @@ void IntegrationKernel()
     // integrate
     dvelx = accxd[i] * dthfd;
     dvely = accyd[i] * dthfd;
-    dvelz = acczd[i] * dthfd;
 
     velhx = velxd[i] + dvelx;
     velhy = velyd[i] + dvely;
-    velhz = velzd[i] + dvelz;
 
     posxd[i] += velhx * dtimed;
     posyd[i] += velhy * dtimed;
-    poszd[i] += velhz * dtimed;
 
     velxd[i] = velhx + dvelx;
     velyd[i] = velhy + dvely;
-    velzd[i] = velhz + dvelz;
   }
 }
 
@@ -758,7 +786,7 @@ int main(int argc, char *argv[])
     // comment: since nbodies are leaf nodes, the total number should be less than this since *2 is 
     // for that of binary tree and we are now actually using quadtree
     nnodes = nbodies * 2;
-    if (nnodes < 1024*blocks) 
+    if (nnodes < 1024*blocks)
       nnodes = 1024*blocks;
     while ((nnodes & (WARPSIZE-1)) != 0) 
       nnodes++;
@@ -776,6 +804,7 @@ int main(int argc, char *argv[])
       fprintf(stderr, "configuration: %d bodies, %d time steps\n", nbodies, timesteps);
 
       // comment: these arrays are only for bodies
+      // comment: but they will be later copied to an array where body bodies and cells reside
       mass = (float *)malloc(sizeof(float) * nbodies);
       if (mass == NULL) {fprintf(stderr, "cannot allocate mass\n");  exit(-1);}
       posx = (float *)malloc(sizeof(float) * nbodies);
@@ -791,6 +820,8 @@ int main(int argc, char *argv[])
       velz = (float *)malloc(sizeof(float) * nbodies);
       if (velz == NULL) {fprintf(stderr, "cannot allocate velz\n");  exit(-1);}
 
+      // comment: l refers to left side of the array (that contains both bodies and cells)
+      // comment: We allocate the bodies at the beginning and the cells at the end of the arrays
       if (cudaSuccess != cudaMalloc((void **)&errl, sizeof(int))) fprintf(stderr, "could not allocate errd\n");  CudaTest("couldn't allocate errd");
       if (cudaSuccess != cudaMalloc((void **)&childl, sizeof(int) * (nnodes+1) * 4)) fprintf(stderr, "could not allocate childd\n");  CudaTest("couldn't allocate childd");
       if (cudaSuccess != cudaMalloc((void **)&massl, sizeof(float) * (nnodes+1))) fprintf(stderr, "could not allocate massd\n");  CudaTest("couldn't allocate massd");
@@ -810,6 +841,8 @@ int main(int argc, char *argv[])
       acczl = (float *)&childl[5*inc];
       sortl = (int *)&childl[6*inc];
 
+      // comment: these six is for calculating bounding box
+      // comment: but in our step they are not needed because we use the outmost bounding box instead
       if (cudaSuccess != cudaMalloc((void **)&maxxl, sizeof(float) * blocks)) fprintf(stderr, "could not allocate maxxd\n");  CudaTest("couldn't allocate maxxd");
       if (cudaSuccess != cudaMalloc((void **)&maxyl, sizeof(float) * blocks)) fprintf(stderr, "could not allocate maxyd\n");  CudaTest("couldn't allocate maxyd");
       if (cudaSuccess != cudaMalloc((void **)&maxzl, sizeof(float) * blocks)) fprintf(stderr, "could not allocate maxzd\n");  CudaTest("couldn't allocate maxzd");
@@ -817,6 +850,7 @@ int main(int argc, char *argv[])
       if (cudaSuccess != cudaMalloc((void **)&minyl, sizeof(float) * blocks)) fprintf(stderr, "could not allocate minyd\n");  CudaTest("couldn't allocate minyd");
       if (cudaSuccess != cudaMalloc((void **)&minzl, sizeof(float) * blocks)) fprintf(stderr, "could not allocate minzd\n");  CudaTest("couldn't allocate minzd");
 
+      // 
       if (cudaSuccess != cudaMemcpyToSymbol(nnodesd, &nnodes, sizeof(int))) fprintf(stderr, "copying of nnodes to device failed\n");  CudaTest("nnode copy to device failed");
       if (cudaSuccess != cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int))) fprintf(stderr, "copying of nbodies to device failed\n");  CudaTest("nbody copy to device failed");
       if (cudaSuccess != cudaMemcpyToSymbol(errd, &errl, sizeof(void*))) fprintf(stderr, "copying of err to device failed\n");  CudaTest("err copy to device failed");

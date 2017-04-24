@@ -8,7 +8,7 @@ Report::addReport(Perf &perf) {
 void
 Report::showReport() {
 
-    for (int i = 0; i < perfs.size(); i++) {
+    for (int i = 0; i < (int)perfs.size(); i++) {
         int loop_times = perfs[i].getLoopTimes();
         GS_DOUBLE total_time = perfs[i].getEndTime() - perfs[i].getStartTime();
         printf("gravitySim performance report for  %s:\n", perfs[i].getName().c_str());
