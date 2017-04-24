@@ -18,6 +18,12 @@ MortonTree::~MortonTree() {
             delete cell;
         }
     }
+    for (int i = 0; i < this->mortonObjects.size(); i++) {
+        MortonTreeObject *obj = this->mortonObjects[i];
+        if (obj != NULL) {
+            delete obj;
+        }
+    }
 }
 
 // fill in MortonTreeObject vector using the specified objects
@@ -27,7 +33,7 @@ MortonTree::fillMortonTreeObjects(std::vector<Object> &objects) {
     int n = objects.size();
     for (int i = 0; i < n; i++) {
         Object *o = &objects[i];
-        this->mortonObjects.push_back(MortonTreeObject(o->position, o->speed, o->mass, this->bound));
+        this->mortonObjects.push_back(new MortonTreeObject(o->position, o->speed, o->mass, this->bound));
     }
     std::sort(this->mortonObjects.begin(), this->mortonObjects.end(), MortonTreeObjectEval());
     LEAVE();
@@ -75,7 +81,7 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
         
         unsigned int level_mask = get_level_mask(level);
         MortonCell *cell = new MortonCell();
-        MortonTreeObject *o = &this->mortonObjects[start];
+        MortonTreeObject *o = this->mortonObjects[start];
         unsigned int old_mask = o->mcode & level_mask;
         cell->bound = rectangled_incr_bound(o->position);
         cell->com = Object::add(cell->com, *o);
@@ -85,7 +91,7 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
         int count = 1;
 
         for (int j = start + 1; j < end; j++) {
-            MortonTreeObject *o = &this->mortonObjects[j];
+            MortonTreeObject *o = this->mortonObjects[j];
             unsigned int new_mask = o->mcode & level_mask;
 
             if (new_mask == old_mask) {
@@ -145,14 +151,14 @@ MortonTree::getForceOnObject(int obj_idx) {
     
     GS_FLOAT s, d;
     Point2D dr, result = point2d_zero();
-    MortonTreeObject *tar_obj = &this->mortonObjects[obj_idx];
+    MortonTreeObject *tar_obj = this->mortonObjects[obj_idx];
     int i = 0;
     int end = this->mortonObjects.size();
     int access_idx = 0;
 
     while (i < end) {
         // every loop check a leaf cell
-        MortonTreeObject *curr_obj = &this->mortonObjects[i];
+        MortonTreeObject *curr_obj = this->mortonObjects[i];
         int curr_cell_idx = curr_obj->parent;
         assert(curr_cell_idx >= 0);
         MortonCell *curr_cell = this->cells[curr_cell_idx];
@@ -170,7 +176,7 @@ MortonTree::getForceOnObject(int obj_idx) {
                 if (j == obj_idx) {
                     continue;
                 }
-                curr_obj = &this->mortonObjects[j];
+                curr_obj = this->mortonObjects[j];
                 result = point2d_add(result, Object::calculate_force(*tar_obj, *curr_obj));
             } 
         }
@@ -191,7 +197,7 @@ MortonTree::applyToObjects(GS_FLOAT dt) {
     for (int i = 0; i < this->mortonObjects.size(); i++) {
         Point2D acc = getForceOnObject(i);
         Point2D dv = point2d_multiply(acc, dt);
-        obj = &this->mortonObjects[i];
+        obj = this->mortonObjects[i];
         //printf("obj:%d, pos.x:%f, pos.y:%f, acc.x:%f, acc.y:%f, dv.x:%f, dv.y:%f\n", i, obj->position.x, obj->position.y, acc.x, acc.y, dv.x, dv.y);
         obj->speed = point2d_add(obj->speed, dv);
         obj->update_position(dt);
@@ -218,7 +224,7 @@ void
 MortonTree::traverseObjects() {
     ENTER();
     for (int i = 0; i < this->mortonObjects.size(); i++) {
-        MortonTreeObject *o = &this->mortonObjects[i];
+        MortonTreeObject *o = this->mortonObjects[i];
         MortonCell *cell = this->cells[o->parent];
         unsigned int level_mask = get_level_mask(cell->level);
         printf("obj: %d, parent:%d, mcode:0x%u, level:%d, level_mask:0x%u, mask:0x%u\n", 
@@ -240,7 +246,7 @@ MortonTree::getCells() {
     return cells;
 }
 
-std::vector<MortonTreeObject>& 
+std::vector<MortonTreeObject*>& 
 MortonTree::getObjects() {
     return mortonObjects;
 }

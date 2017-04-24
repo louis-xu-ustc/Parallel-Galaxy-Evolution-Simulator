@@ -21,9 +21,9 @@ MortonSpaceModel::update(GS_FLOAT dt) {
     this->tree->generateMortonTree();
     this->tree->applyToObjects(dt);
     this->objects.clear();
-    std::vector<MortonTreeObject> objs = this->tree->getObjects();
+    std::vector<MortonTreeObject*> objs = this->tree->getObjects();
     for (int i = 0; i < objs.size(); i++) {
-        this->objects.push_back(objs[i]);
+        this->objects.push_back(*objs[i]);
     }
     //printf("number of objs: %lu\n", this->objects.size());
     remove_objects_outside_bounds();
