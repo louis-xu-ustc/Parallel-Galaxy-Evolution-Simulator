@@ -12,13 +12,13 @@ MortonTree::MortonTree(RectangleD bound) {
 }
 
 MortonTree::~MortonTree() {
-    for (int i = 0; i < this->cells.size(); i++) {
+    for (size_t i = 0; i < this->cells.size(); i++) {
         MortonCell *cell = this->cells[i];
         if (cell != NULL) {
             delete cell;
         }
     }
-    for (int i = 0; i < this->mortonObjects.size(); i++) {
+    for (size_t i = 0; i < this->mortonObjects.size(); i++) {
         MortonTreeObject *obj = this->mortonObjects[i];
         if (obj != NULL) {
             delete obj;
@@ -31,7 +31,7 @@ void
 MortonTree::fillMortonTreeObjects(std::vector<Object> &objects) {
     ENTER();
     int n = objects.size();
-    for (int i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
         Object *o = &objects[i];
         this->mortonObjects.push_back(new MortonTreeObject(o->position, o->speed, o->mass, this->bound));
     }
@@ -67,7 +67,7 @@ MortonTree::generateMortonTree() {
 void
 MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<CellInfo> &new_info) {
     //ENTER();
-    for (int i = 0; i < old_info.size(); i++) {
+    for (size_t i = 0; i < old_info.size(); i++) {
         int level = old_info[i].level;
         int start = old_info[i].start;
         int size = old_info[i].size;
@@ -90,7 +90,7 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
         int first_index = start;
         int count = 1;
 
-        for (int j = start + 1; j < end; j++) {
+        for (size_t j = start + 1; j < end; j++) {
             MortonTreeObject *o = this->mortonObjects[j];
             unsigned int new_mask = o->mcode & level_mask;
 
@@ -172,7 +172,7 @@ MortonTree::getForceOnObject(int obj_idx) {
             result = point2d_add(result, Object::calculate_force(*tar_obj, curr_cell->com));
         } else {
             //INFO("cell %d not in the SD_TRESHOLD\n", access_idx);
-            for (int j = i; j < curr_cell->count; j++) {
+            for (size_t j = i; j < curr_cell->count; j++) {
                 if (j == obj_idx) {
                     continue;
                 }
@@ -194,7 +194,7 @@ MortonTree::applyToObjects(GS_FLOAT dt) {
     ENTER();
     MortonTreeObject *obj;
 
-    for (int i = 0; i < this->mortonObjects.size(); i++) {
+    for (size_t i = 0; i < this->mortonObjects.size(); i++) {
         Point2D acc = getForceOnObject(i);
         Point2D dv = point2d_multiply(acc, dt);
         obj = this->mortonObjects[i];
@@ -208,11 +208,11 @@ MortonTree::applyToObjects(GS_FLOAT dt) {
 void
 MortonTree::traverseCells() {
     ENTER();
-    for (int i = 0; i < this->cells.size(); i++) {
+    for (size_t i = 0; i < this->cells.size(); i++) {
         MortonCell *cell = this->cells[i];
-        printf("cell:%d, is_leaf:%d, start:%d, size:%d, parent:%d\n", i, cell->is_leaf, cell->first_index, cell->count, cell->parent);
+        printf("cell:%lu, is_leaf:%d, start:%d, size:%d, parent:%d\n", i, cell->is_leaf, cell->first_index, cell->count, cell->parent);
         printf("children: ");
-        for (int j = 0; j < cell->children.size(); j++) {
+        for (size_t j = 0; j < cell->children.size(); j++) {
             printf("%d, ", cell->children[j]);
         }
         printf("\n");
@@ -223,11 +223,11 @@ MortonTree::traverseCells() {
 void
 MortonTree::traverseObjects() {
     ENTER();
-    for (int i = 0; i < this->mortonObjects.size(); i++) {
+    for (size_t i = 0; i < this->mortonObjects.size(); i++) {
         MortonTreeObject *o = this->mortonObjects[i];
         MortonCell *cell = this->cells[o->parent];
         unsigned int level_mask = get_level_mask(cell->level);
-        printf("obj: %d, parent:%d, mcode:0x%u, level:%d, level_mask:0x%u, mask:0x%u\n", 
+        printf("obj: %lu, parent:%d, mcode:0x%u, level:%d, level_mask:0x%u, mask:0x%u\n", 
                 i, o->parent, o->mcode, cell->level, level_mask, level_mask & o->mcode);
     }   
     LEAVE();

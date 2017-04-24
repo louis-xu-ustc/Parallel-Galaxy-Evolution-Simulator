@@ -22,7 +22,7 @@ MortonSpaceModel::update(GS_FLOAT dt) {
     this->tree->applyToObjects(dt);
     this->objects.clear();
     std::vector<MortonTreeObject*> objs = this->tree->getObjects();
-    for (int i = 0; i < objs.size(); i++) {
+    for (size_t i = 0; i < objs.size(); i++) {
         this->objects.push_back(*objs[i]);
     }
     //printf("number of objs: %lu\n", this->objects.size());
@@ -37,7 +37,7 @@ MortonSpaceModel::update(GS_FLOAT dt) {
  */
 void
 MortonSpaceModel::draw_mortonTree(MortonTree *tree) {
-    for (int i = 0; i < this->tree->getCells().size(); i++) {
+    for (size_t i = 0; i < this->tree->getCells().size(); i++) {
         this->screen->draw_empty_rectangle(this->tree->getCells()[i]->bound, RGB_BLUE);   
     }
 }
