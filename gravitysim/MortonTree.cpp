@@ -30,7 +30,7 @@ MortonTree::~MortonTree() {
 void 
 MortonTree::fillMortonTreeObjects(std::vector<Object> &objects) {
     ENTER();
-    int n = objects.size();
+    size_t n = objects.size();
     for (size_t i = 0; i < n; i++) {
         Object *o = &objects[i];
         this->mortonObjects.push_back(new MortonTreeObject(o->position, o->speed, o->mass, this->bound));
@@ -69,13 +69,13 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
     //ENTER();
     for (size_t i = 0; i < old_info.size(); i++) {
         int level = old_info[i].level;
-        int start = old_info[i].start;
-        int size = old_info[i].size;
+        size_t start = old_info[i].start;
+        size_t size = old_info[i].size;
         int parent = old_info[i].parent;
-        int end = start + size;
+        size_t end = start + size;
 
         if (!isValidObjectsIndex(start, size)) {
-            ERR("Invalid index, %d, %d\n", start, size);
+            ERR("Invalid index, %lu, %lu\n", start, size);
             return;
         }
         
@@ -154,7 +154,6 @@ MortonTree::getForceOnObject(int obj_idx) {
     MortonTreeObject *tar_obj = this->mortonObjects[obj_idx];
     int i = 0;
     int end = this->mortonObjects.size();
-    int access_idx = 0;
 
     while (i < end) {
         // every loop check a leaf cell
@@ -168,11 +167,9 @@ MortonTree::getForceOnObject(int obj_idx) {
 
         // FIXME only try the leaf layer, maybe can go upstairs further
         if ((s/d) < SD_TRESHOLD) {
-            //INFO("cell %d in the SD_TRESHOLD\n", access_idx);
             result = point2d_add(result, Object::calculate_force(*tar_obj, curr_cell->com));
         } else {
-            //INFO("cell %d not in the SD_TRESHOLD\n", access_idx);
-            for (size_t j = i; j < curr_cell->count; j++) {
+            for (int j = i; j < curr_cell->count; j++) {
                 if (j == obj_idx) {
                     continue;
                 }
@@ -181,7 +178,6 @@ MortonTree::getForceOnObject(int obj_idx) {
             } 
         }
         i += curr_cell->count;
-        access_idx++;
     }
 
     LEAVE();

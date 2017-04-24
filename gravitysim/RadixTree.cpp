@@ -35,7 +35,7 @@ RadixTree::fillRadixObjects(std::vector<Object> objects) {
  */
 void
 RadixTree::initHierarchy() {
-    int n = radixObjects.size();
+    size_t n = radixObjects.size();
    
     // the number of leafs is equal to radixObjects in a RadixTree
     leafs = new Node[n];
@@ -171,7 +171,7 @@ RadixTree::determineRange(int idx) {
         int t = stepMax / step;
         int newTest = idx + (l + t) * dir;
         if (newTest >= 0 && newTest <= n) {
-            int newSplit = CLZ(preciousCode ^ radixObjects[newTest].mcode);
+            size_t newSplit = CLZ(preciousCode ^ radixObjects[newTest].mcode);
             if (newSplit > min) {
                 l = l + t;
             }
