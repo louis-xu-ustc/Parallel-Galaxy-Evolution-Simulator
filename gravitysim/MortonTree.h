@@ -100,6 +100,7 @@ class MortonTree {
         MortonTree(RectangleD bound);
         ~MortonTree();
 
+        std::vector<MortonCell*>& getCells();
         // fill in MortonTreeObject vector using the specified objects
         void fillMortonTreeObjects(std::vector<Object> &objects);
         // generate the whole MortonTree, until all the cells become leafs or the max depth of the tree reaches

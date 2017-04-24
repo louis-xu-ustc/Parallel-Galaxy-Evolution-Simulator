@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <vector>
 #include "Object.h"
+#include "Screen.h"
 
 class SpaceModel {
 private:
@@ -11,7 +12,8 @@ private:
 public:
     RectangleD bounds;
     std::vector<Object> objects;
-    SpaceModel(RectangleD bounds, std::vector<Object> &objects);
+    Screen *screen;
+    SpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen);
 
     ~SpaceModel();
 
@@ -20,6 +22,7 @@ public:
     void remove_objects_outside_bounds();
 
     virtual void update(GS_FLOAT dt);
+    virtual void draw_bounds();
 };
 
 #endif

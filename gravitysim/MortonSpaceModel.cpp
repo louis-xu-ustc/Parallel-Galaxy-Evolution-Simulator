@@ -1,6 +1,6 @@
 #include "MortonSpaceModel.h"
 
-MortonSpaceModel::MortonSpaceModel(RectangleD bounds, std::vector<Object> &objects) : SpaceModel(bounds, objects) {
+MortonSpaceModel::MortonSpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen) : SpaceModel(bounds, objects, screen) {
     this->tree = new MortonTree(bounds);
     if (this->tree == NULL) {
         printf("unable to initialize MortonTree in SpaceModel");
@@ -26,4 +26,19 @@ MortonSpaceModel::update(GS_FLOAT dt) {
     this->tree = new MortonTree(this->bounds);
     this->tree->fillMortonTreeObjects(this->objects);
     this->tree->generateMortonTree();
+}
+
+/**
+ * draw MortonTree in the SpaceView
+ */
+void
+MortonSpaceModel::draw_mortonTree(MortonTree *tree) {
+    for (int i = 0; i < this->tree->getCells().size(); i++) {
+        this->screen->draw_empty_rectangle(this->tree->getCells()[i]->bound, RGB_BLUE);   
+    }
+}
+
+void
+MortonSpaceModel::draw_bounds() {
+    draw_mortonTree(this->tree);
 }

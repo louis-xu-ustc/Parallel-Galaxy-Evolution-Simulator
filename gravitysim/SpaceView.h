@@ -2,10 +2,11 @@
 #define GravitySim_space_view_h
 
 #include <stdlib.h>
+#include <vector>
 #include "Object.h"
 #include "Screen.h"
 #include "QuadTree.h"
-#include <vector>
+#include "MortonTree.h"
 
 class SpaceView {
     private:
@@ -15,7 +16,7 @@ class SpaceView {
         ~SpaceView();
         void clear();
         void draw_objects(std::vector<Object> &objects);
-        void draw_quadTree(QuadTree *tree);
         void display();
+        Screen *getScreen();
 };
 #endif

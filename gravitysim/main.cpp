@@ -16,6 +16,9 @@
 #define SUCCESS 0
 #define FAILURE 1
 
+#define ENABLE_SEQ_BARNES
+//#define ENABLE_SEQ_MORTON
+
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
 bool execute_model(SpaceController *controller, SpaceModel *model, Perf *perf);
@@ -32,15 +35,18 @@ int main(int argc, const char * argv[]) {
     SimulationConfig config = get_config(argc, argv);
     SpaceController *controller = new SpaceController(config);
     controller->generate_objects(config.view_bounds, config.galaxies_n, config.objects_n, config.galaxy_size);
+    Screen *screen = controller->getSpaceView()->getScreen();
 
     Report *report = new Report();
-#if 1
-    SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects());
+#ifdef ENABLE_SEQ_BARNES
+    SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects(), screen);
     Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
 #endif
 
-    SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects());
+#ifdef ENABLE_SEQ_MORTON
+    SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
     Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
+#endif
 
     // TODO
     // SpaceModel *cudaBarnesHutModel = new SpaceModel(config.model_bounds, controller->get_objects());
@@ -54,7 +60,7 @@ int main(int argc, const char * argv[]) {
         return FAILURE;
     }
 
-#if 1
+#ifdef ENABLE_SEQ_BARNES
     // seqBarnes
     while (loop) {
         loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
@@ -62,12 +68,14 @@ int main(int argc, const char * argv[]) {
     report->addReport(*seqBarnesPerf);
 #endif
 
+#ifdef ENABLE_SEQ_MORTON
     // seqMorton
     loop = true;
     while (loop) {
         loop = execute_model(controller, seqMortonModel, seqMortonPerf); 
     }
     report->addReport(*seqMortonPerf);
+#endif
 
     // cudaBarnes
     // while (loop) {

@@ -20,8 +20,8 @@ SpaceController::update(GS_FLOAT dt, SpaceModel *model) {
     if (last_update_time >= (1.0 / MAX_FPS)) {
         this->view->clear();
         this->view->draw_objects(model->objects);
-#if DRAW_QUADS
-        this->view->draw_quadtree(model->tree);
+#if DRAW_BOUNDS
+        model->draw_bounds();
 #endif
 #if PRINT_FPS
         printf("FPS: %.1f\n", 1.0 / last_update_time);
@@ -73,9 +73,12 @@ SpaceController::add_galaxy(Point2D position, GS_FLOAT size, size_t n) {
     }
 }
 
-
 std::vector<Object>& 
 SpaceController::get_objects() {
     return this->objects;
 }
 
+SpaceView*
+SpaceController::getSpaceView() {
+    return this->view;
+}

@@ -28,7 +28,7 @@
 #define DRAW_BIG    0
 #define DRAW_DARKEN_OR_LIGHTEN 0 
 #define DARKEN_OR_LIGHTEN_STEP 0.3
-#define DRAW_QUADS   0
+//#define DRAW_BOUNDS  1
 #define PRINT_FPS    0
 
 #define MAX_SPEED 10.00

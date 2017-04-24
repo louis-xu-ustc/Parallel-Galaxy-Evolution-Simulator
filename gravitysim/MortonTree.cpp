@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <assert.h>     /* assert */
+#include <vector>
 #include "MortonTree.h"
 #include "log.h"
 
@@ -141,38 +142,56 @@ MortonTree::getForceOnObject(int obj_idx) {
     
     GS_FLOAT s, d;
     Point2D dr, result = point2d_zero();
-    MortonTreeObject tar_obj = this->objects[obj_idx];
+    MortonTreeObject *tar_obj = &this->objects[obj_idx];
     int i = 0;
     int end = this->objects.size();
+    int access_idx = 0;
 
     while (i < end) {
         // every loop check a leaf cell
-        MortonTreeObject curr_obj = this->objects[i];
-        int curr_cell_idx = curr_obj.parent;
+        MortonTreeObject *curr_obj = &this->objects[i];
+        int curr_cell_idx = curr_obj->parent;
         assert(curr_cell_idx >= 0);
         MortonCell *curr_cell = this->cells[curr_cell_idx];
         s = MAX(curr_cell->bound.size.x, curr_cell->bound.size.y);
-        DBG("curr_cell_idx:%d, x:%f, y:%f\n", curr_cell_idx, curr_cell->bound.size.x, curr_cell->bound.size.y);
-        dr = point2d_sub(tar_obj.position, curr_cell->com.position);
+        dr = point2d_sub(tar_obj->position, curr_cell->com.position);
         d = point2d_length(dr);
 
         // FIXME only try the leaf layer, maybe can go upstairs further
         if ((s/d) < SD_TRESHOLD) {
-            result = point2d_add(result, Object::calculate_force(tar_obj, curr_cell->com));
+            //INFO("cell %d in the SD_TRESHOLD\n", access_idx);
+            result = point2d_add(result, Object::calculate_force(*tar_obj, curr_cell->com));
         } else {
+            //INFO("cell %d not in the SD_TRESHOLD\n", access_idx);
             for (int j = i; j < curr_cell->count; j++) {
                 if (j == obj_idx) {
                     continue;
                 }
-                MortonTreeObject curr_obj = this->objects[j];
-                result = point2d_add(result, Object::calculate_force(tar_obj, curr_obj));
+                curr_obj = &this->objects[j];
+                result = point2d_add(result, Object::calculate_force(*tar_obj, *curr_obj));
             } 
         }
         i += curr_cell->count;
+        access_idx++;
     }
 
     LEAVE();
     return result;
+}
+
+// update all the objects' speed
+void 
+MortonTree::applyToObjects(GS_FLOAT dt) {
+    ENTER();
+    MortonTreeObject *obj;
+
+    for (int i = 0; i < this->objects.size(); i++) {
+        Point2D acc = getForceOnObject(i);
+        Point2D dv = point2d_multiply(acc, dt);
+        obj = &this->objects[i];
+        obj->speed = point2d_add(obj->speed, dv);
+    }
+    LEAVE();
 }
 
 void
@@ -200,25 +219,15 @@ MortonTree::traverseObjects() {
     LEAVE();
 }
 
-// update all the objects' speed
-void 
-MortonTree::applyToObjects(GS_FLOAT dt) {
-    ENTER();
-    MortonTreeObject *obj;
-
-    for (int i = 0; i < this->objects.size(); i++) {
-        Point2D acc = getForceOnObject(i);
-        Point2D dv = point2d_multiply(acc, dt);
-        obj = &this->objects[i];
-        obj->speed = point2d_add(obj->speed, dv);
-    }
-    LEAVE();
-}
-
 bool
 MortonTree::isValidObjectsIndex(int start, int size) {
     int n = this->objects.size();
     //DBG("n: %d, start: %d, size: %d\n", n, start, size);
     return (n > 0) && (start >= 0) && (size >= 0) 
         && (start + size <= n); 
+}
+
+std::vector<MortonCell*>&
+MortonTree::getCells() {
+    return cells;
 }

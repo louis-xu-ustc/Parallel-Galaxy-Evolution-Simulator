@@ -1,9 +1,8 @@
 #include "BHSpaceModel.h"
 #include <ctime>
 
-
-BHSpaceModel::BHSpaceModel(RectangleD bounds, std::vector<Object> &objects) 
-: SpaceModel(bounds, objects) {
+BHSpaceModel::BHSpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen) 
+: SpaceModel(bounds, objects, screen) {
     this->tree = new QuadTree(this->bounds);
     if (this->tree == NULL) {
         printf("unable to initialize QuadTree in SpaceModel\n");
@@ -11,16 +10,12 @@ BHSpaceModel::BHSpaceModel(RectangleD bounds, std::vector<Object> &objects)
     }
 } 
 
-
 double 
 get_timediff (timespec &ts1, timespec &ts2) {
     double sec_diff = difftime(ts1.tv_sec, ts2.tv_sec);
     long nsec_diff = ts1.tv_nsec - ts2.tv_nsec;
     return sec_diff * 1000000000 + nsec_diff;
 }
-
-
-#define TIME_UTC 1
 
 void 
 BHSpaceModel::update(GS_FLOAT dt) {
@@ -62,6 +57,23 @@ BHSpaceModel::update(GS_FLOAT dt) {
     printf("rebuild tree: %.16f%%\n", rebuild_tree_time / total_time * 100);
 }
 
+/**
+ * draw QuadTree in the SpaceView
+ */
+void
+BHSpaceModel::draw_quadTree(QuadTree *tree) {
+    for (int i = 0; i < 4; i++) {
+        if (tree->children[i]) {
+            draw_quadTree(tree->children[i]);
+        }
+    }
+    this->screen->draw_empty_rectangle(tree->bounds, RGB_BLUE);
+}
+
+void
+BHSpaceModel::draw_bounds() {
+    draw_quadTree(this->tree);
+}
 
 BHSpaceModel::~BHSpaceModel() {
     delete this->tree;
