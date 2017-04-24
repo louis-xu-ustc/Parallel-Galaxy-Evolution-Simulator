@@ -34,5 +34,6 @@
 #define MAX_SPEED 10.00
 #define MAX_MASS 10.0
 #define SD_TRESHOLD 0.5
+#define OBJS_THRESHOLD      (14)
 
 #endif

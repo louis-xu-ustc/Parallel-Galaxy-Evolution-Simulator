@@ -102,7 +102,7 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
                 //printf("\e[1;34mobj: %d, parent: %d\e[0m\n", j, o->parent);
             } else {
                 // if the group size of these objects is not greater than THRES_OBJS, then regard the cell as a leaf
-                if (count <= THRES_OBJS) {
+                if (count <= OBJS_THRESHOLD) {
                     cell->is_leaf = true;
                 } else {
                     cell->is_leaf = false;
@@ -129,7 +129,7 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
         }
 
         // update info for the last new cell
-        if (count <= THRES_OBJS) {
+        if (count <= OBJS_THRESHOLD) {
             cell->is_leaf = true; 
         } else {
             cell->is_leaf = false;

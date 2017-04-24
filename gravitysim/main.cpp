@@ -16,8 +16,8 @@
 #define SUCCESS 0
 #define FAILURE 1
 
-#define ENABLE_SEQ_BARNES
 #define ENABLE_SEQ_MORTON
+#define ENABLE_SEQ_BARNES
 
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
@@ -38,14 +38,11 @@ int main(int argc, const char * argv[]) {
     Screen *screen = controller->getSpaceView()->getScreen();
 
     Report *report = new Report();
-#ifdef ENABLE_SEQ_BARNES
-    SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects(), screen);
-    Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
-#endif
-
 #ifdef ENABLE_SEQ_MORTON
     SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
-    Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
+#endif
+#ifdef ENABLE_SEQ_BARNES
+    SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects(), screen);
 #endif
 
     // TODO
@@ -59,22 +56,23 @@ int main(int argc, const char * argv[]) {
     if (!controller) {
         return FAILURE;
     }
-
-#ifdef ENABLE_SEQ_BARNES
-    // seqBarnes
-    while (loop) {
-        loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
-    }
-    report->addReport(*seqBarnesPerf);
-#endif
-
 #ifdef ENABLE_SEQ_MORTON
+    Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
     // seqMorton
-    loop = true;
     while (loop) {
         loop = execute_model(controller, seqMortonModel, seqMortonPerf); 
     }
     report->addReport(*seqMortonPerf);
+#endif
+
+#ifdef ENABLE_SEQ_BARNES
+    Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
+    // seqBarnes
+    loop = true;
+    while (loop) {
+        loop = execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
+    }
+    report->addReport(*seqBarnesPerf);
 #endif
 
     // cudaBarnes
@@ -82,7 +80,7 @@ int main(int argc, const char * argv[]) {
     //     loop = execute_model(controller, seqBarnesHutModel, cudaBarnesPerf);
     // }
     // report->addReport(*cudaBarnesPerf);
-    
+
     // seqFMM
     // cudaFMM
 

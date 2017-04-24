@@ -5,8 +5,6 @@
 #include "Object.h"
 #include <vector>
 
-#define THRES_OBJS      (16)
-
 class MortonTreeObject : public Object {
     public:
         unsigned int mcode;
