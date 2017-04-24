@@ -557,8 +557,8 @@ void SummarizationKernel()
 }
 
 
-cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objects)
-    : SpaceModel(bounds, objects) {
+cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen)
+    : SpaceModel(bounds, objects, screen) {
     printf("initializing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     this->tree = new QuadTree(this->bounds);
     if (this->tree == NULL) {
@@ -570,7 +570,7 @@ cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objec
 
 void
 cudaBHSpaceModel::update(GS_FLOAT dt) {
-    printf("1111111111111111\n");
+    // printf("1111111111111111\n");
     size_t i;
 #ifdef CONST_TIME
     dt = CONST_TIME;
@@ -606,7 +606,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     while ((nnodes & (WARPSIZE-1)) != 0) 
       nnodes++;
     nnodes--;
-    printf("2222222222222\n");
+    // printf("2222222222222\n");
 
     float dtime, dthf, epssq, itolsq;
     dtime = 0.025;
@@ -626,9 +626,9 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     float *accxl, *accyl;
     float *maxxl, *maxyl;
     float *minxl, *minyl;
-    printf("333333333333333333\n");
+    // printf("333333333333333333\n");
 
-    printf("333333 zhihou \n");
+    // printf("333333 zhihou \n");
     cudaMalloc((void **)&errl, sizeof(int));
     cudaMalloc((void **)&childl, sizeof(int) * (nnodes + 1) * 4);
     cudaMalloc((void **)&massl, sizeof(float) * (nnodes + 1));
@@ -636,7 +636,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMalloc((void **)&posyl, sizeof(float) * (nnodes + 1));
     cudaMalloc((void **)&countl, sizeof(int) * (nnodes + 1));
     cudaMalloc((void **)&startl, sizeof(int) * (nnodes + 1));
-    printf("4444444444444444\n");
+    // printf("4444444444444444\n");
 
     // ?????
     int inc = (nbodies + WARPSIZE - 1) & (-WARPSIZE);
@@ -650,7 +650,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMalloc((void **)&maxyl, sizeof(float) * blocks);
     cudaMalloc((void **)&minxl, sizeof(float) * blocks);
     cudaMalloc((void **)&minyl, sizeof(float) * blocks);
-    printf("555555555555555555555\n");
+    // printf("555555555555555555555\n");
 
     cudaMemcpyToSymbol(nnodesd, &nnodes, sizeof(int));
     cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int));
@@ -667,7 +667,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(maxyd, &maxyl, sizeof(void*));
     cudaMemcpyToSymbol(minxd, &minxl, sizeof(void*));
     cudaMemcpyToSymbol(minyd, &minyl, sizeof(void*));
-    printf("66666666666666666666\n");
+    // printf("66666666666666666666\n");
 
     for (i = 0; i < nbodies; i++) {
         posx[i] = this->objects[i].position.x;
@@ -676,14 +676,14 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
         vely[i] = this->objects[i].speed.y;
         mass[i] = this->objects[i].mass;
     }
-    printf("7777777777777777777777\n");
+    // printf("7777777777777777777777\n");
 
     cudaMemcpy(massl, mass, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(posxl, posx, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(posyl, posy, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(velxl, velx, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(velyl, vely, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
-    printf("888888888888888888\n");
+    // printf("888888888888888888\n");
 
     cudaMemcpyToSymbol(massd, &massl, sizeof(void *));
     cudaMemcpyToSymbol(posxd, &posxl, sizeof(void *));
@@ -692,7 +692,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(velyd, &velyl, sizeof(void *));
     cudaMemcpyToSymbol(accxd, &accxl, sizeof(void *));
     cudaMemcpyToSymbol(accyd, &accyl, sizeof(void *));
-    printf("999999999999999999\n");
+    // printf("999999999999999999\n");
 
     InitializationKernel <<< 1, 1>>>();
     BoundingBoxKernel<<<blocks * FACTOR1, THREADS1>>>();
@@ -701,14 +701,14 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     SortKernel <<< blocks *FACTOR4, THREADS4>>>();
     ForceCalculationKernel <<< blocks *FACTOR5, THREADS5>>>();
     IntegrationKernel <<< blocks *FACTOR6, THREADS6>>>();
-    printf("10101010101010110\n");
+    // printf("10101010101010110\n");
 
     cudaMemcpy(&error, errl, sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(posy, posyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(velx, velxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(vely, velyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
-    printf("111100001111000011110000\n");
+    // printf("111100001111000011110000\n");
 
     // update posx, posy, velx, vely to this->objects array
     for (i = 0; i < nbodies; i++) {
@@ -718,7 +718,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
         this->objects[i].speed.y = vely[i];
         this->objects[i].mass = mass[i];
     }
-    printf("2333333333333333333\n");
+    // printf("2333333333333333333\n");
 
     remove_objects_outside_bounds();
 

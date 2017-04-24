@@ -29,5 +29,6 @@ class SpaceController {
                                  size_t objects_per_galaxy, GS_FLOAT galaxy_size);
         void add_galaxy(Point2D position, GS_FLOAT size, size_t n);
         std::vector<Object>& get_objects();
+        SpaceView* getSpaceView(); 
 };
 #endif

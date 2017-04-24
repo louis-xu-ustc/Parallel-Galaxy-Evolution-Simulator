@@ -1,17 +1,17 @@
-#include "BHSpaceModel.h"
-#include "stdio.h"
 #include <ctime>
+#include "BHSpaceModel.h"
+#include "log.h"
 
+static int log_level = LOG_INFO;
 
-BHSpaceModel::BHSpaceModel(RectangleD bounds, std::vector<Object> &objects) 
-: SpaceModel(bounds, objects) {
+BHSpaceModel::BHSpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen) 
+: SpaceModel(bounds, objects, screen) {
     this->tree = new QuadTree(this->bounds);
     if (this->tree == NULL) {
-        printf("unable to initialize QuadTree in SpaceModel\n");
+        ERR("unable to initialize QuadTree in SpaceModel\n");
         return;
     }
 } 
-
 
 double 
 get_timediff (timespec &ts1, timespec &ts2) {
@@ -19,9 +19,6 @@ get_timediff (timespec &ts1, timespec &ts2) {
     long nsec_diff = ts1.tv_nsec - ts2.tv_nsec;
     return sec_diff * 1000000000 + nsec_diff;
 }
-
-
-#define TIME_UTC 1
 
 void 
 BHSpaceModel::update(GS_FLOAT dt) {
@@ -55,14 +52,31 @@ BHSpaceModel::update(GS_FLOAT dt) {
     double rebuild_tree_time = get_timediff(six, five);
     double total_time = applying_force_time + update_position_time + rebuild_tree_time;
     
-    printf("applying_force_time = %.16f\n", applying_force_time);
-    printf("update_position_time = %.16f\n", update_position_time);
-    printf("rebuild_tree_time = %.16f\n", rebuild_tree_time);
-    printf("apply force: %.16f%%\n", applying_force_time / total_time * 100);
-    printf("update position: %.16f%%\n", update_position_time / total_time * 100);
-    printf("rebuild tree: %.16f%%\n", rebuild_tree_time / total_time * 100);
+    DBG("applying_force_time = %.16f\n", applying_force_time);
+    DBG("update_position_time = %.16f\n", update_position_time);
+    DBG("rebuild_tree_time = %.16f\n", rebuild_tree_time);
+    DBG("apply force: %.16f%%\n", applying_force_time / total_time * 100);
+    DBG("update position: %.16f%%\n", update_position_time / total_time * 100);
+    DBG("rebuild tree: %.16f%%\n", rebuild_tree_time / total_time * 100);
 }
 
+/**
+ * draw QuadTree in the SpaceView
+ */
+void
+BHSpaceModel::draw_quadTree(QuadTree *tree) {
+    for (int i = 0; i < 4; i++) {
+        if (tree->children[i]) {
+            draw_quadTree(tree->children[i]);
+        }
+    }
+    this->screen->draw_empty_rectangle(tree->bounds, RGB_BLUE);
+}
+
+void
+BHSpaceModel::draw_bounds() {
+    draw_quadTree(this->tree);
+}
 
 BHSpaceModel::~BHSpaceModel() {
     delete this->tree;

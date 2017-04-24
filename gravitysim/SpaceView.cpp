@@ -74,15 +74,7 @@ SpaceView::display() {
     this->screen->display();
 }
 
-/**
- * draw QuadTree in the SpaceView
- */
-void
-SpaceView::draw_quadTree(QuadTree *tree) {
-    for (int i = 0; i < 4; i++) {
-        if (tree->children[i]) {
-            draw_quadTree(tree->children[i]);
-        }
-    }
-    this->screen->draw_empty_rectangle(tree->bounds, RGB_BLUE);
+Screen*
+SpaceView::getScreen() {
+    return this->screen;
 }

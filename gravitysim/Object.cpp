@@ -3,6 +3,13 @@
 #include "Object.h"
 #include "build_config.h"
 
+Object::Object(Point2D position, Point2D speed, GS_FLOAT mass) {
+    this->position = position;
+    this->speed = speed;
+    this->mass = mass;
+}
+
+Object::Object() {}
 
 /**
  * make an object with the specified position, speed and mass

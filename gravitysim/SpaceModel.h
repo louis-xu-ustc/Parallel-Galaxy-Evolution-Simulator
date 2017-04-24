@@ -2,9 +2,9 @@
 #define GravitySim_space_model_h
 
 #include <stdlib.h>
-#include "Object.h"
-#include "QuadTree.h"
 #include <vector>
+#include "Object.h"
+#include "Screen.h"
 
 class SpaceModel {
 private:
@@ -12,7 +12,8 @@ private:
 public:
     RectangleD bounds;
     std::vector<Object> objects;
-    SpaceModel(RectangleD bounds, std::vector<Object> &objects);
+    Screen *screen;
+    SpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen);
 
     ~SpaceModel();
 
@@ -21,6 +22,7 @@ public:
     void remove_objects_outside_bounds();
 
     virtual void update(GS_FLOAT dt);
+    virtual void draw_bounds();
 };
 
 #endif

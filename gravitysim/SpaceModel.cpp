@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-SpaceModel::SpaceModel(RectangleD bounds, std::vector<Object> &objects) {
+SpaceModel::SpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen) {
     this->bounds = bounds;
     // deep copy
     this->objects = objects;
+    this->screen = screen;
 }
 
 void 
@@ -20,9 +21,13 @@ SpaceModel::remove_objects_outside_bounds() {
     }
 }
 
-void SpaceModel::update(GS_FLOAT dt) {
+void 
+SpaceModel::update(GS_FLOAT dt) {
 }
 
+void
+SpaceModel::draw_bounds() {
+}
 
 SpaceModel::~SpaceModel() {
 }

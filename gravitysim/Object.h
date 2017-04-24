@@ -13,6 +13,10 @@ public:
     Point2D position;
     Point2D speed;
     GS_FLOAT mass;
+
+    Object(Point2D position, Point2D speed, GS_FLOAT mass);
+    Object();
+
     /**
      * make an object with the specified position, speed and mass
      */
