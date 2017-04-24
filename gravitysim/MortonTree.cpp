@@ -56,7 +56,7 @@ MortonTree::generateMortonTree() {
 
     while (old_info.size() > 0) {
         generateMortonCell(old_info, new_info);
-        new_info.swap(old_info);
+        old_info.swap(new_info);
         new_info.clear();
     }
     //traverseObjects();
@@ -66,7 +66,7 @@ MortonTree::generateMortonTree() {
 // generate the MortonCell based on the tree leve, and start, size of cells
 void
 MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<CellInfo> &new_info) {
-    //ENTER();
+    ENTER();
     for (size_t i = 0; i < old_info.size(); i++) {
         int level = old_info[i].level;
         size_t start = old_info[i].start;
@@ -94,6 +94,10 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
             MortonTreeObject *o = this->mortonObjects[j];
             unsigned int new_mask = o->mcode & level_mask;
 
+            // TODO there's a bug here may cause busy loop because of too small OBJS_THRESHOLD,
+            // the mcode and level_mask together cannot differentiate between those objects within the same group
+            // and causes the dead loop between old and new info stack, and makes no progress
+            // one idea is to increase the bit width of mcode from 32 to 64 bits 
             if (new_mask == old_mask) {
                 count++;
                 cell->bound = rectangled_incr_bound(cell->bound, o->position);
@@ -141,7 +145,7 @@ MortonTree::generateMortonCell(std::vector<CellInfo> &old_info, std::vector<Cell
         this->cells.push_back(cell);
         this->cells[parent]->children.push_back(this->cells.size() - 1);
     }
-    //LEAVE();
+    LEAVE();
 }
 
 // calculate the total force exerted on an object specified with the index

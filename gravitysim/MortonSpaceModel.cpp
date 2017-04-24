@@ -7,6 +7,7 @@ MortonSpaceModel::MortonSpaceModel(RectangleD bounds, std::vector<Object> &objec
         return;
     }
     this->tree->fillMortonTreeObjects(this->objects);
+    this->tree->generateMortonTree();
 }
 
 MortonSpaceModel::~MortonSpaceModel() {
@@ -18,7 +19,6 @@ MortonSpaceModel::update(GS_FLOAT dt) {
 #ifdef CONST_TIME
     dt = CONST_TIME;
 #endif
-    this->tree->generateMortonTree();
     this->tree->applyToObjects(dt);
     this->objects.clear();
     std::vector<MortonTreeObject*> objs = this->tree->getObjects();
@@ -30,6 +30,7 @@ MortonSpaceModel::update(GS_FLOAT dt) {
     delete this->tree;
     this->tree = new MortonTree(this->bounds);
     this->tree->fillMortonTreeObjects(this->objects);
+    this->tree->generateMortonTree();
 }
 
 /**
@@ -37,8 +38,9 @@ MortonSpaceModel::update(GS_FLOAT dt) {
  */
 void
 MortonSpaceModel::draw_mortonTree(MortonTree *tree) {
-    for (size_t i = 0; i < this->tree->getCells().size(); i++) {
-        this->screen->draw_empty_rectangle(this->tree->getCells()[i]->bound, RGB_BLUE);   
+    std::vector<MortonCell*> cells = this->tree->getCells();
+    for (size_t i = 0; i < cells.size(); i++) {
+        this->screen->draw_empty_rectangle(cells[i]->bound, RGB_BLUE);   
     }
 }
 
