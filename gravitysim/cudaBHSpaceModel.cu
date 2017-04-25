@@ -44,6 +44,85 @@ __global__ void InitializationKernel() {
 }
 
 __global__
+void BoundingBoxKernel()
+{
+  register int i, j, k, inc;
+  register float val, minx, maxx, miny, maxy;
+  __shared__ volatile float sminx[THREADS1], smaxx[THREADS1], sminy[THREADS1], smaxy[THREADS1];
+
+  // initialize with valid data (in case #bodies < #threads)
+  minx = maxx = posxd[0];
+  miny = maxy = posyd[0];
+
+  // scan all bodies
+  i = threadIdx.x;
+  inc = THREADS1 * gridDim.x;
+  for (j = i + blockIdx.x * THREADS1; j < nbodiesd; j += inc) {
+    val = posxd[j];
+    minx = min(minx, val);
+    maxx = max(maxx, val);
+    val = posyd[j];
+    miny = min(miny, val);
+    maxy = max(maxy, val);
+  }
+
+  // reduction in shared memory
+  sminx[i] = minx;
+  smaxx[i] = maxx;
+  sminy[i] = miny;
+  smaxy[i] = maxy;
+
+  for (j = THREADS1 / 2; j > 0; j /= 2) {
+    __syncthreads();
+    if (i < j) {
+      k = i + j;
+      sminx[i] = minx = min(minx, sminx[k]);
+      smaxx[i] = maxx = max(maxx, smaxx[k]);
+      sminy[i] = miny = min(miny, sminy[k]);
+      smaxy[i] = maxy = max(maxy, smaxy[k]);
+    }
+  }
+
+  // write block result to global memory
+  if (i == 0) {
+    k = blockIdx.x;
+    minxd[k] = minx;
+    maxxd[k] = maxx;
+    minyd[k] = miny;
+    maxyd[k] = maxy;
+
+    inc = gridDim.x - 1;
+    if (inc == atomicInc((unsigned int *)&blkcntd, inc)) {
+      // I'm the last block, so combine all block results
+      for (j = 0; j <= inc; j++) {
+        minx = min(minx, minxd[j]);
+        maxx = max(maxx, maxxd[j]);
+        miny = min(miny, minyd[j]);
+        maxy = max(maxy, maxyd[j]);
+      }
+
+      // compute 'radius'
+      radiusd = max(maxx - minx, maxy - miny) * 0.5;
+
+      // create root node
+      k = nnodesd;
+      bottomd = k;
+
+      massd[k] = -1.0f;
+      startd[k] = 0;
+      posxd[k] = (minx + maxx) * 0.5f;
+      posyd[k] = (miny + maxy) * 0.5f;
+      k *= 4;
+      for (i = 0; i < 4; i++) 
+        childd[k + i] = -1;
+
+      stepd++;
+    }
+  }
+}
+
+
+__global__
 __launch_bounds__(THREADS2, FACTOR2)
 void TreeBuildingKernel()
 {
@@ -200,257 +279,6 @@ void TreeBuildingKernel()
 
 
 __global__
-void BoundingBoxKernel()
-{
-  register int i, j, k, inc;
-  register float val, minx, maxx, miny, maxy;
-  __shared__ volatile float sminx[THREADS1], smaxx[THREADS1], sminy[THREADS1], smaxy[THREADS1];
-
-  // initialize with valid data (in case #bodies < #threads)
-  minx = maxx = posxd[0];
-  miny = maxy = posyd[0];
-
-  // scan all bodies
-  i = threadIdx.x;
-  inc = THREADS1 * gridDim.x;
-  for (j = i + blockIdx.x * THREADS1; j < nbodiesd; j += inc) {
-    val = posxd[j];
-    minx = min(minx, val);
-    maxx = max(maxx, val);
-    val = posyd[j];
-    miny = min(miny, val);
-    maxy = max(maxy, val);
-  }
-
-  // reduction in shared memory
-  sminx[i] = minx;
-  smaxx[i] = maxx;
-  sminy[i] = miny;
-  smaxy[i] = maxy;
-
-  for (j = THREADS1 / 2; j > 0; j /= 2) {
-    __syncthreads();
-    if (i < j) {
-      k = i + j;
-      sminx[i] = minx = min(minx, sminx[k]);
-      smaxx[i] = maxx = max(maxx, smaxx[k]);
-      sminy[i] = miny = min(miny, sminy[k]);
-      smaxy[i] = maxy = max(maxy, smaxy[k]);
-    }
-  }
-
-  // write block result to global memory
-  if (i == 0) {
-    k = blockIdx.x;
-    minxd[k] = minx;
-    maxxd[k] = maxx;
-    minyd[k] = miny;
-    maxyd[k] = maxy;
-
-    inc = gridDim.x - 1;
-    if (inc == atomicInc((unsigned int *)&blkcntd, inc)) {
-      // I'm the last block, so combine all block results
-      for (j = 0; j <= inc; j++) {
-        minx = min(minx, minxd[j]);
-        maxx = max(maxx, maxxd[j]);
-        miny = min(miny, minyd[j]);
-        maxy = max(maxy, maxyd[j]);
-      }
-
-      // compute 'radius'
-      radiusd = max(maxx - minx, maxy - miny) * 0.5;
-
-      // create root node
-      k = nnodesd;
-      bottomd = k;
-
-      massd[k] = -1.0f;
-      startd[k] = 0;
-      posxd[k] = (minx + maxx) * 0.5f;
-      posyd[k] = (miny + maxy) * 0.5f;
-      k *= 4;
-      for (i = 0; i < 4; i++) 
-        childd[k + i] = -1;
-
-      stepd++;
-    }
-  }
-}
-
-
-__global__
-__launch_bounds__(THREADS5, FACTOR5)
-void ForceCalculationKernel()
-{
-  register int i, j, k, n, depth, base, sbase, diff;
-  register float px, py, ax, ay, dx, dy, tmp;
-  __shared__ volatile int pos[MAXDEPTH * THREADS5/WARPSIZE], node[MAXDEPTH * THREADS5/WARPSIZE];
-  __shared__ volatile float dq[MAXDEPTH * THREADS5/WARPSIZE];
-  __shared__ volatile int step, maxdepth;
-
-  if (0 == threadIdx.x) {
-    step = stepd;
-    maxdepth = maxdepthd;
-    tmp = radiusd;
-    // precompute values that depend only on tree level
-    dq[0] = tmp * tmp * itolsqd;
-    for (i = 1; i < maxdepth; i++) {
-      dq[i] = dq[i - 1] * 0.25f;
-    }
-
-    if (maxdepth > MAXDEPTH) {
-      *errd = maxdepth;
-    }
-  }
-  __syncthreads();
-
-  if (maxdepth <= MAXDEPTH) {
-    // figure out first thread in each warp (lane 0)
-    base = threadIdx.x / WARPSIZE;
-    sbase = base * WARPSIZE;
-    j = base * MAXDEPTH;
-
-    diff = threadIdx.x - sbase;
-    // make multiple copies to avoid index calculations later
-    if (diff < MAXDEPTH) {
-      dq[diff+j] = dq[diff];
-    }
-    __syncthreads();
-
-    // iterate over all bodies assigned to thread
-    for (k = threadIdx.x + blockIdx.x * blockDim.x; k < nbodiesd; k += blockDim.x * gridDim.x) {
-      i = sortd[k];  // get permuted/sorted index
-      // cache position info
-      px = posxd[i];
-      py = posyd[i];
-
-      ax = 0.0f;
-      ay = 0.0f;
-
-      // initialize iteration stack, i.e., push root node onto stack
-      depth = j;
-      if (sbase == threadIdx.x) {
-        node[j] = nnodesd;
-        pos[j] = 0;
-      }
-      __threadfence();  // make sure it's visible
-
-      while (depth >= j) {
-        // stack is not empty
-        while (pos[depth] < 4) {
-          // node on top of stack has more children to process
-          n = childd[node[depth]*4+pos[depth]];  // load child pointer
-          if (sbase == threadIdx.x) {
-            // I'm the first thread in the warp
-            pos[depth]++;
-          }
-          __threadfence();  // make sure it's visible
-          if (n >= 0) {
-            dx = posxd[n] - px;
-            dy = posyd[n] - py;
-            tmp = dx*dx + (dy*dy + epssqd);  // compute distance squared (plus softening)
-            if ((n < nbodiesd) || __all(tmp >= dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
-              tmp = rsqrtf(tmp);  // compute distance
-              tmp = massd[n] * tmp * tmp * tmp;
-              ax += dx * tmp;
-              ay += dy * tmp;
-            } else {
-              // push cell onto stack
-              depth++;
-              if (sbase == threadIdx.x) {
-                node[depth] = n;
-                pos[depth] = 0;
-              }
-              __threadfence();  // make sure it's visible
-            }
-          } else {
-            depth = max(j, depth - 1);  // early out because all remaining children are also zero
-          }
-        }
-        depth--;  // done with this level
-      }
-
-      if (step > 0) {
-        // update velocity
-        velxd[i] += (ax - accxd[i]) * dthfd;
-        velyd[i] += (ay - accyd[i]) * dthfd;
-      }
-
-      // save computed acceleration
-      accxd[i] = ax;
-      accyd[i] = ay;
-    }
-  }
-}
-
-
-__global__
-__launch_bounds__(THREADS6, FACTOR6)
-void IntegrationKernel()
-{
-  register int i, inc;
-  register float dvelx, dvely;
-  register float velhx, velhy;
-
-  // iterate over all bodies assigned to thread
-  inc = blockDim.x * gridDim.x;
-  for (i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += inc) {
-    // integrate
-    dvelx = accxd[i] * dthfd;
-    dvely = accyd[i] * dthfd;
-
-    velhx = velxd[i] + dvelx;
-    velhy = velyd[i] + dvely;
-
-    posxd[i] += velhx * dtimed;
-    posyd[i] += velhy * dtimed;
-
-    velxd[i] = velhx + dvelx;
-    velyd[i] = velhy + dvely;
-  }
-}
-
-__global__
-__launch_bounds__(THREADS4, FACTOR4)
-void SortKernel()
-{
-  register int i, k, ch, dec, start, bottom;
-
-  bottom = bottomd;
-  // comment: stride, just like inc 
-  dec = blockDim.x * gridDim.x;
-  k = nnodesd + 1 - dec + threadIdx.x + blockIdx.x * blockDim.x;
-
-  // iterate over all cells assigned to thread
-  while (k >= bottom) {
-    // comment: the startd is used to signify the boundary in the sortd array
-    // comment: it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
-    start = startd[k];
-    // comment: this is quite like kernel 3, if the start is still -1, it keeps polling until the start is ready
-    // comment: at the start, only root is able to compute because only its start is not -1 (it is 0)
-    // comment: start serves both purpose, one is for signify whether it can start, another is for signify the area it puts its elements
-    if (start >= 0) {
-      // comment: traverse from left child to right child
-      for (i = 0; i < 4; i++) {
-        // comment: iterate through the children of the cell
-        ch = childd[k*4+i];
-        if (ch >= nbodiesd) {
-          // child is a cell
-          startd[ch] = start;  // set start ID of child
-          start += countd[ch];  // add #bodies in subtree
-        } else if (ch >= 0) {
-          // child is a body
-          sortd[start] = ch;  // record body in 'sorted' array
-          start++;
-        }
-      }
-      k -= dec;  // move on to next cell
-    }
-    __syncthreads();  // throttle
-  }
-}
-
-__global__
 __launch_bounds__(THREADS3, FACTOR3)
 void SummarizationKernel()
 {
@@ -557,9 +385,187 @@ void SummarizationKernel()
 }
 
 
+__global__
+__launch_bounds__(THREADS4, FACTOR4)
+void SortKernel()
+{
+  register int i, k, ch, dec, start, bottom;
+
+  bottom = bottomd;
+  // comment: stride, just like inc 
+  dec = blockDim.x * gridDim.x;
+  k = nnodesd + 1 - dec + threadIdx.x + blockIdx.x * blockDim.x;
+
+  // iterate over all cells assigned to thread
+  while (k >= bottom) {
+    // comment: the startd is used to signify the boundary in the sortd array
+    // comment: it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
+    start = startd[k];
+    // comment: this is quite like kernel 3, if the start is still -1, it keeps polling until the start is ready
+    // comment: at the start, only root is able to compute because only its start is not -1 (it is 0)
+    // comment: start serves both purpose, one is for signify whether it can start, another is for signify the area it puts its elements
+    if (start >= 0) {
+      // comment: traverse from left child to right child
+      for (i = 0; i < 4; i++) {
+        // comment: iterate through the children of the cell
+        ch = childd[k*4+i];
+        if (ch >= nbodiesd) {
+          // child is a cell
+          startd[ch] = start;  // set start ID of child
+          start += countd[ch];  // add #bodies in subtree
+        } else if (ch >= 0) {
+          // child is a body
+          sortd[start] = ch;  // record body in 'sorted' array
+          start++;
+        }
+      }
+      k -= dec;  // move on to next cell
+    }
+    __syncthreads();  // throttle
+  }
+}
+
+
+__global__
+__launch_bounds__(THREADS5, FACTOR5)
+void ForceCalculationKernel()
+{
+  register int i, j, k, n, depth, base, sbase, diff;
+  register float px, py, ax, ay, dx, dy, tmp;
+  __shared__ volatile int pos[MAXDEPTH * THREADS5/WARPSIZE], node[MAXDEPTH * THREADS5/WARPSIZE];
+  __shared__ volatile float dq[MAXDEPTH * THREADS5/WARPSIZE];
+  __shared__ volatile int step, maxdepth;
+
+  if (0 == threadIdx.x) {
+    step = stepd;
+    maxdepth = maxdepthd;
+    tmp = radiusd;
+    // precompute values that depend only on tree level
+    dq[0] = tmp * tmp * itolsqd;
+    for (i = 1; i < maxdepth; i++) {
+      // 
+      dq[i] = dq[i - 1] * 0.25f;
+    }
+
+    if (maxdepth > MAXDEPTH) {
+      *errd = maxdepth;
+    }
+  }
+  __syncthreads();
+
+  if (maxdepth <= MAXDEPTH) {
+    // figure out first thread in each warp (lane 0)
+    base = threadIdx.x / WARPSIZE;
+    sbase = base * WARPSIZE;
+    j = base * MAXDEPTH;
+
+    diff = threadIdx.x - sbase;
+    // make multiple copies to avoid index calculations later
+    if (diff < MAXDEPTH) {
+      dq[diff+j] = dq[diff];
+    }
+    __syncthreads();
+
+    // iterate over all bodies assigned to thread
+    for (k = threadIdx.x + blockIdx.x * blockDim.x; k < nbodiesd; k += blockDim.x * gridDim.x) {
+      i = sortd[k];  // get permuted/sorted index
+      // cache position info
+      px = posxd[i];
+      py = posyd[i];
+
+      ax = 0.0f;
+      ay = 0.0f;
+
+      // initialize iteration stack, i.e., push root node onto stack
+      depth = j;
+      if (sbase == threadIdx.x) {
+        node[j] = nnodesd;
+        pos[j] = 0;
+      }
+      __threadfence();  // make sure it's visible
+
+      while (depth >= j) {
+        // stack is not empty
+        while (pos[depth] < 4) {
+          // node on top of stack has more children to process
+          n = childd[node[depth]*4+pos[depth]];  // load child pointer
+          if (sbase == threadIdx.x) {
+            // I'm the first thread in the warp
+            pos[depth]++;
+          }
+          __threadfence();  // make sure it's visible
+          if (n >= 0) {
+            dx = posxd[n] - px;
+            dy = posyd[n] - py;
+            tmp = dx*dx + (dy*dy + epssqd);  // compute distance squared (plus softening)
+            if ((n < nbodiesd) || __all(tmp >= dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
+              tmp = rsqrtf(tmp);  // compute distance
+              tmp = massd[n] * tmp * tmp;
+              ax += dx * tmp;
+              ay += dy * tmp;
+            } else {
+              // push cell onto stack
+              depth++;
+              if (sbase == threadIdx.x) {
+                node[depth] = n;
+                pos[depth] = 0;
+              }
+              __threadfence();  // make sure it's visible
+            }
+          } else {
+            depth = max(j, depth - 1);  // early out because all remaining children are also zero
+          }
+        }
+        depth--;  // done with this level
+      }
+
+      if (step > 0) {
+        // update velocity
+        velxd[i] += (ax - accxd[i]) * dthfd;
+        printf("velxd[i] = %f\n", velxd[i]);
+        velyd[i] += (ay - accyd[i]) * dthfd;
+        printf("velyd[i] = %f\n", velyd[i]);
+      }
+
+      // save computed acceleration
+      accxd[i] = ax;
+      printf("accxd[i] = %f\n", accxd[i]);
+      accyd[i] = ay;
+      printf("accyd[i] = %f\n", accyd[i]);
+    }
+  }
+}
+
+
+__global__
+__launch_bounds__(THREADS6, FACTOR6)
+void IntegrationKernel()
+{
+  register int i, inc;
+  register float dvelx, dvely;
+  register float velhx, velhy;
+
+  // iterate over all bodies assigned to thread
+  inc = blockDim.x * gridDim.x;
+  for (i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += inc) {
+    // integrate
+    dvelx = accxd[i] * dthfd;
+    dvely = accyd[i] * dthfd;
+
+    velhx = velxd[i] + dvelx;
+    velhy = velyd[i] + dvely;
+
+    posxd[i] += velhx * dtimed;
+    posyd[i] += velhy * dtimed;
+
+    velxd[i] = velhx + dvelx;
+    velyd[i] = velhy + dvely;
+  }
+}
+
+
 cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objects, Screen *screen)
     : SpaceModel(bounds, objects, screen) {
-    printf("initializing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     this->tree = new QuadTree(this->bounds);
     if (this->tree == NULL) {
         printf("unable to initialize QuadTree in SpaceModel\n");
@@ -611,6 +617,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     float dtime, dthf, epssq, itolsq;
     dtime = 0.025;
     dthf = dtime * 0.5f;
+    // EPSILON; for soothing 
     epssq = 0.05 * 0.05;
     itolsq = 1.0f / (0.5 * 0.5);
 
@@ -640,11 +647,11 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
 
     // ?????
     int inc = (nbodies + WARPSIZE - 1) & (-WARPSIZE);
-    velxl = (float *)&childl[0 * inc];
-    velyl = (float *)&childl[1 * inc];
-    accxl = (float *)&childl[2 * inc];
-    accyl = (float *)&childl[3 * inc];
-    sortl = (int *)&childl[4 * inc];
+    velxl = (float *)&childl[0*inc];
+    velyl = (float *)&childl[1*inc];
+    accxl = (float *)&childl[2*inc];
+    accyl = (float *)&childl[3*inc];
+    sortl = (int *)&childl[4*inc];
 
     cudaMalloc((void **)&maxxl, sizeof(float) * blocks);
     cudaMalloc((void **)&maxyl, sizeof(float) * blocks);
@@ -652,6 +659,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMalloc((void **)&minyl, sizeof(float) * blocks);
     // printf("555555555555555555555\n");
 
+    // copy the address of the array to constant memory
     cudaMemcpyToSymbol(nnodesd, &nnodes, sizeof(int));
     cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int));
     cudaMemcpyToSymbol(errd, &errl, sizeof(void *));
@@ -703,12 +711,14 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     IntegrationKernel <<< blocks *FACTOR6, THREADS6>>>();
     // printf("10101010101010110\n");
 
+
+    printf("begin copying\n");
     cudaMemcpy(&error, errl, sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(posy, posyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(velx, velxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(vely, velyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
-    // printf("111100001111000011110000\n");
+    printf("done copying\n");
 
     // update posx, posy, velx, vely to this->objects array
     for (i = 0; i < nbodies; i++) {
