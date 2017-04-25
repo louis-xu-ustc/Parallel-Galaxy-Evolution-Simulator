@@ -522,16 +522,16 @@ void ForceCalculationKernel()
       if (step > 0) {
         // update velocity
         velxd[i] += (ax - accxd[i]) * dthfd;
-        printf("velxd[i] = %f\n", velxd[i]);
+        // printf("velxd[i] = %f\n", velxd[i]);
         velyd[i] += (ay - accyd[i]) * dthfd;
-        printf("velyd[i] = %f\n", velyd[i]);
+        // printf("velyd[i] = %f\n", velyd[i]);
       }
 
       // save computed acceleration
       accxd[i] = ax;
-      printf("accxd[i] = %f\n", accxd[i]);
+      // printf("accxd[i] = %f\n", accxd[i]);
       accyd[i] = ay;
-      printf("accyd[i] = %f\n", accyd[i]);
+      // printf("accyd[i] = %f\n", accyd[i]);
     }
   }
 }
@@ -615,7 +615,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     // printf("2222222222222\n");
 
     float dtime, dthf, epssq, itolsq;
-    dtime = 0.025;
+    dtime = dt;
     dthf = dtime * 0.5f;
     // EPSILON; for soothing 
     epssq = 0.05 * 0.05;
@@ -712,13 +712,13 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     // printf("10101010101010110\n");
 
 
-    printf("begin copying\n");
+    // printf("begin copying\n");
     cudaMemcpy(&error, errl, sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(posy, posyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(velx, velxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(vely, velyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
-    printf("done copying\n");
+    // printf("done copying\n");
 
     // update posx, posy, velx, vely to this->objects array
     for (i = 0; i < nbodies; i++) {
