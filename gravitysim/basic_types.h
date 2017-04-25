@@ -263,6 +263,7 @@ static GS_INLINE uint32_t CLZ(uint32_t x) {
 /**
  * get the level mask used for constructing an OrcTree
  */
+#if 0
 static GS_INLINE unsigned int get_level_mask(int level) {
     if (level < 0) {
         printf("Invalid level for the tree");
@@ -307,5 +308,35 @@ static GS_INLINE unsigned int get_level_mask(int level) {
     }
     return res;
 }
+#else
+static unsigned int mask_table[] = {
+    0x00000000u,
+    0x30000000u,
+    0x3C000000u,
+    0x3F000000u,
+    0x3FC00000u,
+    0x3FF00000u,
+    0x3FFC0000u,
+    0x3FFF0000u,
+    0x3FFFC000u,
+    0x3FFFF000u,
+    0x3FFFFC00u,
+    0x3FFFFF00u,
+    0x3FFFFFC0u,
+    0x3FFFFFF0u,
+    0x3FFFFFFCu,
+    0x3FFFFFFFu,
+};
+
+static GS_INLINE unsigned int get_level_mask(int level) {
+    if (level <= 0) {
+        return 0x00000000u;
+    }
+    if (level >= 15) {
+        return 0x3FFFFFFFu;
+    }
+    return mask_table[level];
+}
+#endif
 
 #endif

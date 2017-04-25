@@ -42,7 +42,8 @@ NVCC=nvcc
 OBJS=$(OBJDIR)/main.o $(OBJDIR)/Object.o $(OBJDIR)/Perf.o $(OBJDIR)/QuadTree.o \
      $(OBJDIR)/Report.o $(OBJDIR)/Screen.o $(OBJDIR)/SpaceController.o $(OBJDIR)/SpaceModel.o \
      $(OBJDIR)/SpaceView.o $(OBJDIR)/FMMSpaceModel.o $(OBJDIR)/cudaBHSpaceModel.o \
-     $(OBJDIR)/BHSpaceModel.o $(OBJDIR)/basic_types.o
+     $(OBJDIR)/BHSpaceModel.o $(OBJDIR)/basic_types.o \
+     $(OBJDIR)/MortonSpaceModel.o $(OBJDIR)/MortonTree.o
 
 
 .PHONY: dirs clean

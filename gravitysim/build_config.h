@@ -15,7 +15,7 @@
 
 #define LOOP_TIMES 1000
 #define CONST_TIME 0.1
-#define OBJECT_NUM 1000
+#define OBJECT_NUM 1000     //1000
 #define GALAXY_NUM 4
 #define GALAXY_SIZE 100
 #define G_CONST 10.5
@@ -28,11 +28,15 @@
 #define DRAW_BIG    0
 #define DRAW_DARKEN_OR_LIGHTEN 0 
 #define DARKEN_OR_LIGHTEN_STEP 0.3
-//#define DRAW_BOUNDS  1
+#define DRAW_BOUNDS  0
 #define PRINT_FPS    0
 
 #define MAX_SPEED 10.00
 #define MAX_MASS 10.0
 #define SD_TRESHOLD 0.5
+// need to adjust this value according to the number of the particles in the glaxy
+// since the morton code of the particle may not be scattered enough to avoid conflict
+// 32 works fine for 1000 particles in a galaxy
+#define OBJS_THRESHOLD 48
 
 #endif

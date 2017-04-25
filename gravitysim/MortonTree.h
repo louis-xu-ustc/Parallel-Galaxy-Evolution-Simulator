@@ -5,8 +5,6 @@
 #include "Object.h"
 #include <vector>
 
-#define THRES_OBJS      (16)
-
 class MortonTreeObject : public Object {
     public:
         unsigned int mcode;
@@ -25,8 +23,8 @@ class MortonTreeObject : public Object {
  * operator used to sort MortonTreeObject
  */
 struct MortonTreeObjectEval {
-    bool operator ()(const MortonTreeObject &i, const MortonTreeObject &j) const {
-        return (i.mcode < j.mcode);
+    bool operator ()(const MortonTreeObject *i, const MortonTreeObject *j) const {
+        return (i->mcode < j->mcode);
     }
 };
 
@@ -56,13 +54,17 @@ class MortonCell {
         Object com;     
         
         // the bound of a Morton Cell
-        RectangleD bound;   
+        RectangleD bound;
+
+        // the level of this cell
+        int level;
 
         MortonCell() {
             is_leaf = false;
             first_index = 0;
             count = 0;
             com = Object::make_zero();
+            level = 0;
         }
 };
 
@@ -88,7 +90,7 @@ struct CellInfo {
  */
 class MortonTree {
     private:
-        std::vector<MortonTreeObject> objects;
+        std::vector<MortonTreeObject*> mortonObjects;
         std::vector<MortonCell*> cells;
         RectangleD bound;
 
@@ -101,6 +103,7 @@ class MortonTree {
         ~MortonTree();
 
         std::vector<MortonCell*>& getCells();
+        std::vector<MortonTreeObject*>& getObjects();
         // fill in MortonTreeObject vector using the specified objects
         void fillMortonTreeObjects(std::vector<Object> &objects);
         // generate the whole MortonTree, until all the cells become leafs or the max depth of the tree reaches

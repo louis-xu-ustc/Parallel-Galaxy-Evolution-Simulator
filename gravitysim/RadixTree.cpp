@@ -23,7 +23,7 @@ RadixTree::~RadixTree() {
  */
 void
 RadixTree::fillRadixObjects(std::vector<Object> objects) {
-    for (int i = 0; i < objects.size(); i++) {
+    for (size_t i = 0; i < objects.size(); i++) {
         Object o = objects[i];
         this->radixObjects.push_back(RadixObject(o.position, o.speed, o.mass, this->bounds));
     }
@@ -35,7 +35,7 @@ RadixTree::fillRadixObjects(std::vector<Object> objects) {
  */
 void
 RadixTree::initHierarchy() {
-    int n = radixObjects.size();
+    size_t n = radixObjects.size();
    
     // the number of leafs is equal to radixObjects in a RadixTree
     leafs = new Node[n];
@@ -44,7 +44,7 @@ RadixTree::initHierarchy() {
     internals = new Node[n-1];
 
     RadixObject *p = radixObjects.data();
-    for (int i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
         leafs[i].obj = p + i;
         radixObjects[i].nodePtr = &leafs[i]; 
     }
@@ -70,8 +70,8 @@ RadixTree::deinitHierarchy() {
  */
 void
 RadixTree::generateHierarchy() {
-    int internal_size = radixObjects.size() - 1;
-    for (int i = 0; i < internal_size; i++) {
+    size_t internal_size = radixObjects.size() - 1;
+    for (size_t i = 0; i < internal_size; i++) {
         generateNode(i);
     }
 }
@@ -144,7 +144,7 @@ RadixTree::determineRange(int idx) {
 
     // check the direction we need to go and the minimal commonPrefix to start
     int dir; // direction to walk, 1 - to right, -1 - to left
-    int min; // the minimal value of the search
+    unsigned int min; // the minimal value of the search
     Point2D leftOrRight = point2d_make(CLZ(preciousCode ^ minusOneCode), 
             CLZ(preciousCode ^ plusOneCode));
     if (leftOrRight.x > leftOrRight.y) {
@@ -171,7 +171,7 @@ RadixTree::determineRange(int idx) {
         int t = stepMax / step;
         int newTest = idx + (l + t) * dir;
         if (newTest >= 0 && newTest <= n) {
-            int newSplit = CLZ(preciousCode ^ radixObjects[newTest].mcode);
+            size_t newSplit = CLZ(preciousCode ^ radixObjects[newTest].mcode);
             if (newSplit > min) {
                 l = l + t;
             }
