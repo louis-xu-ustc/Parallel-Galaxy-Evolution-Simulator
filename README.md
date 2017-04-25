@@ -158,7 +158,7 @@ We think this parallel system is suitable for our workload because our workload 
 
 ### Reference  
 
-*[1] Hamada, Tsuyoshi, Tetsu Narumi, Rio Yokota, Kenji Yasuoka, Keigo Nitadori, and Makoto Taiji. "42 tflops hierarchical n-body simulations on GPUs with applications in both astrophysics and turbulence." In High Performance Computing Networking, Storage and Analysis, Proceedings of the Conference on, pp. 1-12. IEEE, 2009.*
+*[1] Hamada, Tsuyoshi, Tetsu Narumi, Rio Yokota, Kenji Yasuoka, Keigo Nitadori, and Makoto Taiji. "42 tflops hierarchical n-body simulations on GPUs with applications in both astrophysics and turbulence." In High Performance Computing Networking, Storage and Analysis, Proceedings of the Conference on, pp. 1-12. IEEE, 2009.*  
 *[2] http://adl.stanford.edu/cme342/Lecture_Notes_files/lecture13-14_1.pdf*  
 *[3] http://www.cs.princeton.edu/courses/archive/fall03/cs126/assignments/barnes-hut.html*  
 *[4] https://research.nvidia.com/sites/default/files/publications/karras2012hpg_paper.pdf*   
