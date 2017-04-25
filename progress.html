@@ -94,15 +94,30 @@
         <li>
             the first concern is that we need to figure out a better method to evaluate the performance of different
             algorithms, since different algorithms use different strategies to grouping particles. We cannot directly
-            say one algorithm may be better than the other one, even between sequential and parallel versions. One
-            method
-            may have an approximation ratio (let's say 5%) to the result of sequential BarnusHut version for every
+            say one algorithm is better than the other one, even between sequential and parallel versions. One
+            method may have an approximation ratio (let's say 5%) to the result of sequential BarnusHut version for
+            every
             frame.
         </li>
         <li>
-            the second concern is that 
+            according to our original plan, the second algorithm to implement is Fast Multipole Method (FMM), but later
+            during in the reference survey, we find a algorithm that uses Morton Code to approximately group particles
+            and also supports parallel constructing the tree which is the bottleneck of the previous sequential
+            Barneshut version. Currently, we delay the implementation of FMM algorithm and will do the parallel
+            version for this new Morton code based method first. So, FMM becomes one of the remaining unknowns. We may
+            put this feature into "nice to have" list.
         </li>
     </ul>
+
+    <h3>
+        <a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span
+                class="octicon octicon-link"></span></a>References<a name="ref"></a></h3>
+    <ol type="1">
+        <li><a href="http://www.sciencedirect.com/science/article/pii/S0021999111007364">Bedorf, Jeroen, Evghenii
+            Gaburov, and Simon Portegies Zwart. "A sparse octree gravitational N-body code that
+            runs entirely on the GPU processor." Journal of Computational Physics 231.7 (2012): 2825-2839. </a>
+        </li>
+    </ol>
 
     <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/louis-xu-ustc/Parallel-Galaxy-Evolution-Simulator">
