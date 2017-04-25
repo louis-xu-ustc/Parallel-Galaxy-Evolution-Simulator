@@ -3,53 +3,102 @@
         <a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span
                 class="octicon octicon-link"></span></a><b>Project Checkpoint</b></h2>
 
-    <h3> Environment Setup (April 3 - 5) </h3>
+    <h3> Make sure your project schedule on your main project page is up to date with work completed so far, and well as
+        with a revised plan of work for the coming weeks. As by this time you should have a good understanding of what
+        is required to complete your project, I want to see a very detailed schedule for the coming weeks. I suggest
+        breaking time down into half-week increments. Each increment should have at least one task, and for each task
+        put a person's name on it.
+    </h3>
 
-    <p> As outlined in our proposal, our plan is to first have the odometry (tracking) and loop closure parts of the
-        system full working and parallelized before we descent onto generating depth maps for a monocular camera. To
-        obtain depth maps to work with in the beginning, we use the Kinect for Xbox 360, which generates RGB and depth
-        images. </p>
-
-    <p> We borrowed Kayvon's Jetson Tegra K1 development kit for the project. We access the Tegra K1 by connecting it to
-        the internet via Ethernet, and ssh-ing into it from a machine connected to the same LAN. The Tegra K1 had been
-        flashed with the Linux for Tegra (L4T) release R19. So we installed the following software on the Tegra: </p>
     <ul>
-        <li> CUDA Toolkit 6.0</li>
-        <li> OpenCV 2.4.9</li>
-        <li> OpenKinect's libfreenect library</li>
-    </ul>
-    <p> We managed to get libfreenect working with the Kinect, and subsequently with OpenCV as well. We now have RGB and
-        depth images streaming from the Kinect using OpenCV code. The next steps will be to explore OpenCV's CUDA
-        packages to avoid implementing any redundant functions. At any rate, we will look to improve the OpenCV
-        implementations. We will also try to chart out a pseudo-code for the tracking algorithm, and begin its basic
-        implementation soon. </p>
-
-
-    <h3> Testing the Benchmark Code (April 9 - 11) </h3>
-
-    <p> OpenCV’s package includes a dense RGB-D odometry example which we are using as a reference and as a benchmark.
-        We have tested their algorithm against a few sample images. </p>
-
-    <h3> Implementation (April 13 - Present) </h3>
-    <ul>
-        <li> We plan to implement RGB-D odometry on the GPU and then on the CPU. We spent 3 days, between April 9th and
-            11th, breaking down different parts of the serial algorithm, to understand the algorithm as well as to plan
-            the potential parallelism in the algorithm. This was especially important while using OpenCV because it has
-            in-built GPU specific data structures and functions.
-        </li>
-        <li> We began with Cuda implementation of RGB-D odometry. We have a preliminary algorithm up and running. We
-            plan to work on optimizing the algorithm further, to get real-time execution. We will have some priliminary
-            results up on the website within the next few days
-        </li>
+        <p>
+            TODO
+        </p>
     </ul>
 
-    <h3> Revised Project Goals and Parallelism Competition (Present - May 11) </h3>
+    <h3> One to two paragraphs, summarize the work that you have completed so far. (This should be easy if you have been
+        maintaining this information on your project page.)
+    </h3>
+
     <ul>
-        <li> We believe that we will be able to produce real-time CPU and GPU implementation of Visual Odometry. Once we
-            have this working, we will move on to the next phase, where we will be working on Loop closure.
+        <p>
+            TODO
+        </p>
+    </ul>
+
+    <h3>
+        Describe how you are doing with respect to the goals and deliverables stated in your proposal. Do you still
+        believe you will be able to produce all your deliverables? If not, why? What about the "nice to haves"? In your
+        checkpoint writeup we want a new list of goals that you plan to hit for the Parallelism competition.
+    </h3>
+
+    <ul>
+        <p>
+            TODO
+        </p>
+    </ul>
+
+    <h3>
+        What do you plan to show at the parallelism competition? Will it be a demo? Will it be a graph?
+    </h3>
+    <ul>
+        <p>
+            we plan to show a video that records the beautiful pattern of the galaxy evolution simulator
+            and several graphs that compare the performance of different algorithms. Currently, we intend to include
+            sequential BarnesHut, sequential MortonCode, parallel BarnesHut and parallel MortonCode. If time permits,
+            we also wants to try Fast Multipole Method (FMM) mentioned in the proposal.
+        </p>
+    </ul>
+
+    <h3>
+        Do you have preliminary results at this time? If so, it would be great to included them in your checkpoint
+        write-up.
+    </h3>
+    <ul>
+        <div align="center">
+            <img src="img/simulator_without_bouds.png"/><br/> <br/>
+            <strong>Figure 1. sequential BarnusHut without bounds</strong>
+        </div>
+        <p>
+            <strong>Figure 1</strong> depicts the spiral pattern of galaxy evolution using sequential BarnusHut method.
+        </p>
+        <div align="center">
+            <img src="img/simulator_with_bouds.png"/><br/> <br/>
+            <strong>Figure 2. sequential BarnusHut with bounds</strong>
+        </div>
+        <p>
+            <strong>Figure 2</strong> depicts the spiral pattern of galaxy evolution using sequential BarnusHut method
+            and also the
+            bounds of quad-tree in that iteration during the simulation period.
+        </p>
+        <div align="center">
+            <img src="img/curr_perf_comp.png"/><br/> <br/>
+            <strong>Figure 3. current performance comparison result</strong>
+        </div>
+        <p>
+            <strong>Figure 3</strong> is a screen shot that depicts the current performance comparison result. As you
+            can see, we have finished three versions of galaxy simulator - seqBarnes, seqMorton and cudaBarnes.
+            We do some simple statistic analysis about the result, including total time consumption to generate the
+            pattern in 1000 loops, and the average time consumption for a single loop. It's clear that both the total
+            time
+            and average time consumption decrease sharply from seqBarnes to cudaBarnes.
+        </p>
+    </ul>
+
+    <h3>
+        List the issues that concern you the most. Are there any remaining unknowns (things you simply don't know how to
+        solve, or resource you don't know how to get) or is it just a matter of coding and doing the work? If you do not
+        wish to put this information on a public web site you are welcome to email the staff directly.
+    </h3>
+    <ul>
+        <li>
+            the first concern is that we need to figure out a better method to evaluate the performance of different
+            algorithms, since different algorithms use different strategies to grouping particles. We cannot directly
+            say one algorithm may be better than the other one, even between sequential and parallel versions. One method
+            may have an approximation ratio (let's say 5%) to the result of sequential BarnusHut version for every frame.
         </li>
-        <li> We intend to show a demo of real time camera tracking on CPU and GPU. We also intend to show a comparison
-            between pure CPU and GPU based on energy consumption
+        <li>
+            TODO
         </li>
     </ul>
 
