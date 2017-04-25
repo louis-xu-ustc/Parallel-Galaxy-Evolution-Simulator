@@ -13,6 +13,86 @@
     <ul>
         <p>
             Our time schedule table has been updated accordingly.
+        <table class="pure-table pure-table-horizontal">
+            <thead>
+            <tr bgcolor="#f0f0f0">
+                <th>#</th>
+                <th>Date</th>
+                <th>Goals</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <tr>
+                <td>1</td>
+                <td nowrap="nowrap">4.10 - 4.16</td>
+                <td>Read papers on possible optimizations on N-body simulation problem (team)
+                </td>
+                <td>&#10003;</td>
+            </tr>
+
+            <tr bgcolor="#f0f0f0">
+                <td>2</td>
+                <td nowrap="nowrap">4.17 - 4.23</td>
+                <td>Refine the starter sequential implementation of the Barnes-Hut algorithm (team)</td>
+                <td>&#10003;</td>
+            </tr>
+
+            <tr>
+                <td>3</td>
+                <td nowrap="nowrap">4.17 - 4.23</td>
+                <td>Complete unoptimized parallel implementation of the Barnes-Hut algorithm (Zhikun Lao);</br>
+                    Complete morton code based N-tree construction (Yunpeng Xu)
+                </td>
+                <td>&#10003;</td>
+            </tr>
+
+            <tr bgcolor="#f0f0f0">
+                <td>4</td>
+                <td nowrap="nowrap">4.23 - 4.24</td>
+                <td>Complete project checkpoint report (team)</td>
+                <td>&#10003;</td>
+            </tr>
+
+            <tr>
+                <td>5</td>
+                <td nowrap="nowrap">4.25 - 4.27</td>
+                <td>Complete the optimized version of parallel implementation of the Barnes-Hut algorithm; Complete the
+                    cuda version of the morton code based simulation
+                </td>
+                <td></td>
+            </tr>
+
+            <tr bgcolor="#f0f0f0">
+                <td>6</td>
+                <td nowrap="nowrap">4.28 - 5.1</td>
+                <td>Complete the sequential implementation of the Fast Multipole Method</td>
+                <td></td>
+            </tr>
+
+            <tr>
+                <td>7</td>
+                <td nowrap="nowrap">5.2 - 5.5</td>
+                <td>Complete the cuda implementation of the Fast Multipole Method</td>
+                <td>
+                </td>
+            </tr>
+            <tr bgcolor="#f0f0f0">
+                <td>8</td>
+                <td nowrap="nowrap">5.2 - 5.5</td>
+                <td>Finish any good-to-have features</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>9</td>
+                <td nowrap="nowrap">5.6 - 5.10</td>
+                <td>Draft final report and complete project pages</td>
+                <td>
+                </td>
+            </tr>
+            </tbody>
+        </table>
         </p>
     </ul>
 
@@ -22,16 +102,30 @@
 
     <ul>
         <p>
-            Firstly, we refactor our starter code to using c++. The reason is that we will have to use CUDA and CUDA doesn't have C binding. The refactored code is now structured oriented several classes: SpaceController, SpaceModel, and SpaceView. Although they sound like the three components of MVC, they are actually not. The SpaceController is responsible for generating random particles and passing the same set of particles to different SpaceModels. SpaceModel is responsible for actually do the simulation of the particles, that is, generating a quadtree from the location information of the particles, calculating the forces on each particle, and etc. Different simulation methods (e.g. sequential Barnes Hut, parallel Barnes Hut) take the form of subclasses of SpaceModel (e.g. seqBHSpaceModel). SpaceView is responsible for calling into the GLFW library and rendering the images of particles on the screen.
+            Firstly, we refactor our starter code to using c++. The reason is that we will have to use CUDA and CUDA
+            doesn't have C binding. The refactored code is now structured oriented several classes: SpaceController,
+            SpaceModel, and SpaceView. Although they sound like the three components of MVC, they are actually not. The
+            SpaceController is responsible for generating random particles and passing the same set of particles to
+            different SpaceModels. SpaceModel is responsible for actually do the simulation of the particles, that is,
+            generating a quadtree from the location information of the particles, calculating the forces on each
+            particle, and etc. Different simulation methods (e.g. sequential Barnes Hut, parallel Barnes Hut) take the
+            form of subclasses of SpaceModel (e.g. seqBHSpaceModel). SpaceView is responsible for calling into the GLFW
+            library and rendering the images of particles on the screen.
         </p>
-	<p>
-	    Secondly, we implemented the unoptimized CUDA Barnes Hut algorithm. It is based on the simulation method introduced by Martin Burtscher and Keshav Pingali. In this solution, one simulation timestep can be divided into several kernels, with each kernel responsible for one single task (e.g. building the array-based quadtree on GPU, calculating the forces on each particle parallelly). However, the current implementation suffers from too much overhead of data transfer between host and device(GPU). Also, to guarantee the authenticity of our final project, a [new force calculation method](http://ieeexplore.ieee.org/document/7097874/?reload=true) will be implemented.
-	</p>
+        <p>
+            Secondly, we implemented the unoptimized CUDA Barnes Hut algorithm. It is based on the simulation method
+            introduced by Martin Burtscher and Keshav Pingali. In this solution, one simulation timestep can be divided
+            into several kernels, with each kernel responsible for one single task (e.g. building the array-based
+            quadtree on GPU, calculating the forces on each particle parallelly). However, the current implementation
+            suffers from too much overhead of data transfer between host and device(GPU). Also, to guarantee the
+            authenticity of our final project, a [new force calculation
+            method](http://ieeexplore.ieee.org/document/7097874/?reload=true) will be implemented.
+        </p>
 
-	<p>
-		TODO
-		Thirdly, 
-	</p>
+        <p>
+            TODO
+            Thirdly,
+        </p>
     </ul>
 
     <h4>
@@ -42,8 +136,16 @@
 
     <ul>
         <p>
-            Shortly speaking, we changed our plan slightly so one milestone was missed (the sequential FMM method milestone) and we will have to put more effort on the final project in order to keep our project on track. We made a decision that before implementing the sequential FMM method, we would first try to implement another solution (the morton code based N-tree construction). However, given that we have become familiar with the project and have gained enough domain knowledge, we think we will be able to speed up the implementation process and complete the parts of FMM methods. We will try our best to achieve any "nice to haves". To be realistic, as can be seen in the updated time schedule table, we won't have much time for "nice to haves".
-	    TODO: needs some more discussions on a new list of goals that you plan to hit for the Parallelism competition.
+            Shortly speaking, we changed our plan slightly so one milestone was missed (the sequential FMM method
+            milestone) and we will have to put more effort on the final project in order to keep our project on track.
+            We made a decision that before implementing the sequential FMM method, we would first try to implement
+            another solution (the morton code based N-tree construction). However, given that we have become familiar
+            with the project and have gained enough domain knowledge, we think we will be able to speed up the
+            implementation process and complete the parts of FMM methods. We will try our best to achieve any "nice to
+            haves". To be realistic, as can be seen in the updated time schedule table, we won't have much time for
+            "nice to haves".
+            TODO: needs some more discussions on a new list of goals that you plan to hit for the Parallelism
+            competition.
         </p>
     </ul>
 
