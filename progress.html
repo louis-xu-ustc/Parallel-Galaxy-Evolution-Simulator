@@ -43,7 +43,7 @@
                 <td>3</td>
                 <td nowrap="nowrap">4.17 - 4.23</td>
                 <td>Complete unoptimized parallel implementation of the Barnes-Hut algorithm (Zhikun Lao);</br>
-                    Complete morton code based N-tree construction (Yunpeng Xu)
+                    Complete Morton code based N-tree construction (Yunpeng Xu)
                 </td>
                 <td>&#10003;</td>
             </tr>
@@ -59,7 +59,7 @@
                 <td>5</td>
                 <td nowrap="nowrap">4.25 - 4.27</td>
                 <td>Complete the optimized version of parallel implementation of the Barnes-Hut algorithm;</br>
-                    Complete the cuda version of the morton code based simulation
+                    Complete the cuda version of the Morton code based simulation
                 </td>
                 <td></td>
             </tr>
@@ -125,16 +125,16 @@
 
         <p>
             Thirdly, we implemented another algorithm that can parallel the tree construction process based on the
-            morton
+            Morton
             code. <a herf="http://www.sciencedirect.com/science/article/pii/S0021999111007364">The reference can be
-            found here.</a> In this algorithm, the morton code will be generated according to the position of the
+            found here.</a> In this algorithm, the Morton code will be generated according to the position of the
             particle.
-            The morton code is then used with the level mask together to help group those particles into a cell. A cell
+            The Morton code is then used with the level mask together to help group those particles into a cell. A cell
             can be seen as a representative of these particles including their weighted position and mass. It will help
             reduce the calculation compared to the brute force and BarnesHut method, and do the tree construction in a
             parallel way. The limitation is that when the number of particles increases to a large number (let's say 1
-            million), it will become difficult to do the hashing using morton code, since the number of particles that
-            will be grouped into the same cell increases and decreases the precision of calculation.
+            million), it will become difficult to do the hashing using Morton code, since the number of particles that
+            will be grouped into the same cell increases and decreases the precision of the calculation.
         </p>
     </ul>
 
@@ -149,13 +149,13 @@
             Shortly speaking, we changed our plan slightly so one milestone was missed (the sequential FMM method
             milestone) and we will have to put more effort on the final project in order to keep our project on track.
             We made a decision that before implementing the sequential FMM method, we would first try to implement
-            another solution (the morton code based N-tree construction). However, given that we have become familiar
+            another solution (the Morton code based N-tree construction). However, given that we have become familiar
             with the project and have gained enough domain knowledge, we think we will be able to speed up the
             implementation process and complete the parts of FMM methods. We will try our best to achieve any "nice to
             haves". To be realistic, as can be seen in the updated time schedule table, we won't have much time for
-            "nice to haves".
-            TODO: needs some more discussions on a new list of goals that you plan to hit for the Parallelism
-            competition.
+            "nice to haves".</br>
+            <strong>TODO</strong>: needs some more discussions on a new list of goals that you plan to hit for the
+            Parallelism competition.
         </p>
     </ul>
 
@@ -178,17 +178,17 @@
     <ul>
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain' src="img/simulator_without_bouds.jpg"/><br/> <br/>
-            <strong>Figure 1. sequential BarnusHut without bounds</strong>
+            <strong>Figure 1. sequential Barnus-Hut without bounds</strong>
         </div>
         <p>
-            <strong>Figure 1</strong> depicts the spiral pattern of galaxy evolution using sequential BarnusHut method.
+            <strong>Figure 1</strong> depicts the spiral pattern of galaxy evolution using sequential Barnus-Hut method.
         </p>
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain' src="img/simulator_with_bouds.jpg"/><br/> <br/>
-            <strong>Figure 2. sequential BarnusHut with bounds</strong>
+            <strong>Figure 2. sequential Barnus-Hut with bounds</strong>
         </div>
         <p>
-            <strong>Figure 2</strong> depicts the spiral pattern of galaxy evolution using sequential BarnusHut method
+            <strong>Figure 2</strong> depicts the spiral pattern of galaxy evolution using sequential Barnus-Hut method
             and also the
             bounds of quad-tree in that iteration during the simulation period.
         </p>
@@ -216,15 +216,15 @@
             the first concern is that we need to figure out a better method to evaluate the performance of different
             algorithms, since different algorithms use different strategies to grouping particles. We cannot directly
             say one algorithm is better than the other one, even between sequential and parallel versions. One
-            method may have an approximation ratio (let's say 5%) to the result of sequential BarnusHut version for
+            method may have an approximation ratio (let's say 5%) to the result of sequential Barnus-Hut version for
             every
             frame.
         </li>
         <li>
             according to our original plan, the second algorithm to implement is Fast Multipole Method (FMM), but later
-            during in the reference survey, we find a algorithm that uses Morton Code to approximately group particles
+            during in the reference survey, we find an algorithm that uses Morton code to approximately group particles
             and also supports parallel constructing the tree which is the bottleneck of the previous sequential
-            Barneshut version. Currently, we delay the implementation of FMM algorithm and will do the parallel
+            Barnes-Hut version. Currently, we delay the implementation of FMM algorithm and will do the parallel
             version for this new Morton code based method first. So, FMM becomes one of the remaining unknowns. We may
             put this feature into "nice to have" list.
         </li>
