@@ -25,9 +25,14 @@
         $(document).ready(function () {
             $("#body").load("progress.html");
 
+            $("#proposal").click(function () {
+                $("#body").load("proposal.html");
+            });
+
             $("#progress").click(function () {
                 $("#body").load("progress.html");
             });
+
 //            $("#competition").click(function () {
 //                $("#body").load("competition.html");
 //            });
@@ -35,10 +40,6 @@
 //            $("#writeup").click(function () {
 //                $("#body").load("writeup.html");
 //            });
-
-            $("#proposal").click(function () {
-                $("#body").load("proposal.html");
-            });
         });
 
     </script>
@@ -53,12 +54,12 @@
 </head>
 <body>
 <section class="page-header">
-    <h1 class="project-name">Parallel Galaxy Evolution Simulator  </h1>
+    <h1 class="project-name">Parallel Galaxy Evolution Simulator </h1>
     <h2 class="project-tagline">15-618 Final Project</h2>
     <a id="proposal" href="#" class="btn">Proposal</a>
+    <a id="progress" href="#" class="btn">Project Checkpoint</a>
     <!--<a id="competition" href="#" class="btn">Parallel Competition</a>-->
     <!--<a id="writeup" href="#" class="btn">Writeup</a>-->
-    <a id="progress" href="#" class="btn">Project Checkpoint</a>
     <!--<a target="_blank" href="https://github.com/uprasad/CubeRover" class="btn">View on GitHub</a>-->
     <!--
     <a href="https://github.com/uprasad/CubeRover/zipball/master" class="btn">Download .zip</a>
