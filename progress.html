@@ -58,8 +58,8 @@
             <tr>
                 <td>5</td>
                 <td nowrap="nowrap">4.25 - 4.27</td>
-                <td>Complete the optimized version of parallel implementation of the Barnes-Hut algorithm; Complete the
-                    cuda version of the morton code based simulation
+                <td>Complete the optimized version of parallel implementation of the Barnes-Hut algorithm;</br>
+                    Complete the cuda version of the morton code based simulation
                 </td>
                 <td></td>
             </tr>
@@ -118,13 +118,23 @@
             into several kernels, with each kernel responsible for one single task (e.g. building the array-based
             quadtree on GPU, calculating the forces on each particle parallelly). However, the current implementation
             suffers from too much overhead of data transfer between host and device(GPU). Also, to guarantee the
-            authenticity of our final project, a [new force calculation
-            method](http://ieeexplore.ieee.org/document/7097874/?reload=true) will be implemented.
+            authenticity of our final project, a <a href="http://ieeexplore.ieee.org/document/7097874/?reload=true">new
+            force calculation
+            method</a> will be implemented.
         </p>
 
         <p>
-            TODO
-            Thirdly,
+            Thirdly, we implemented another algorithm that can parallel the tree construction process based on the
+            morton
+            code. <a herf="http://www.sciencedirect.com/science/article/pii/S0021999111007364">The reference can be
+            found here.</a> In this algorithm, the morton code will be generated according to the position of the
+            particle.
+            The morton code is then used with the level mask together to help group those particles into a cell. A cell
+            can be seen as a representative of these particles including their weighted position and mass. It will help
+            reduce the calculation compared to the brute force and BarnesHut method, and do the tree construction in a
+            parallel way. The limitation is that when the number of particles increases to a large number (let's say 1
+            million), it will become difficult to do the hashing using morton code, since the number of particles that
+            will be grouped into the same cell increases and decreases the precision of calculation.
         </p>
     </ul>
 
