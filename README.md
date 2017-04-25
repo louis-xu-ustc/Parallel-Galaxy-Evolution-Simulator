@@ -145,16 +145,23 @@ We will be implementing the simulator in C++ using CUDA platform to work with Ge
 
 We think this parallel system is suitable for our workload because our workload can be largely run in parallel. For example, in the Barnes-Hut algorithm, during each iteration, the forces applying on all particles can be potentially computed at the same time, as long as we stay within resource limit. Another example is for the computation of Fast Multipole Method. The dynamic parallelism available in CUDA API can help avoid subsequent index computations and achieve good performance. Although one "fits all" kernel is not possible for FMM and we will have to take a hybrid approach, this parallel platform is still our best choice so far.
 
+Complete the sequential implementation of the Fast Multipole Method
+
+cuda implementation of the Fast Multipole Method
+
 ### SCHEDULE  
 
-| Date        | Goals                                                                                                                                  | Status |
-|-------------|----------------------------------------------------------------------------------------------------------------------------------------|--------|
-| 4.10 - 4.16 | Refine the starter sequential implementation of the Barnes-Hut algorithm; Complete parallel implementation of the Barnes-Hut algorithm |        |
-| 4.17 - 4.23 | Complete the sequential implementation of the Fast Multipole Method                                                                    |        |
-| 4.23 - 4.24 | Conduct implementation refinement and complete project checkpoint report                                                               |        |
-| 4.25 - 5.2  | Complete the parallel implementation of the Fast Multipole Method                                                                      |        |
-| 5.3 - 5.8   | Complete any good-to-have features                                                                                               |        |
-| 5.9 - 5.10  | Draft final report and complete project pages                                                                                          
+| Date        | Goals    | Status |
+|-------------|--------------------------------------------------------|--------|
+| 4.10 - 4.16 | Read papers on possible optimizations on N-body simulation problem (team)  |  ✓   |
+| 4.17 - 4.23 | Refine the starter sequential implementation of the Barnes-Hut algorithm (team)  |  ✓   |
+| 4.17 - 4.23 | Complete unoptimized parallel implementation of the Barnes-Hut algorithm (Zhikun Lao); Complete morton code based N-tree construction (Yunpeng Xu)          |   ✓  |
+| 4.23 - 4.24 | Complete project checkpoint report    (team)    |  ✓  |
+| 4.25 - 4.27  | Complete the optimized version of parallel implementation of the Barnes-Hut algorithm; Complete the cuda version of the morton code based simulation          |        |
+| 4.28 - 5.1   | Complete the sequential implementation of the Fast Multipole Method        |        |
+| 5.2 - 5.5   | Complete the cuda implementation of the Fast Multipole Method    |        |
+| 5.2 - 5.5   | Finish any good-to-have features              |        |   
+| 5.6 - 5.10  | Draft final report and complete project pages         |        |                                                                                     
 
 ### Reference  
 
