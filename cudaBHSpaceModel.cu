@@ -32,8 +32,9 @@ __constant__ float dtimed, dthfd, epssqd, itolsqd;
 // leaf node information, transfer from CPU to GPU
 __constant__ volatile float *leaf_node_mass, *leaf_node_posx, *leaf_node_posy, *leaf_node_velx, *leaf_node_vely, *leaf_node_accx, *leaf_node_accy;
 // internal node information, generated in GPU, should be cudaMalloc-ed
+// TODO how do cudaMalloc do initialization
 __device__ volatile int internal_node_num;    // <= nbodiesd
-__constant__ volatile int *internal_node_child;   // 4 x nbodiesd
+__constant__ volatile int *internal_node_child;   // 4 x nbodiesd, initialized to -1
 __constant__ volatile int *internal_node_mass;    // nbodiesd
 __constant__ volatile int *internal_node_posx;    // nbodiesd
 __constant__ volatile int *internal_node_posy;    // nbodiesd
@@ -153,7 +154,7 @@ void TreeBuildingKernel()
           // create new cell(s) and insert the old and new body
           // comment: you can't do summarization at the same time as you insert new ones (really?)
           // comment: because, if you do so, you have traverse backward to the root (still doable?)
-          
+
           // create new internal node
 
           // compute the center of this internal node
@@ -203,7 +204,7 @@ void TreeBuildingKernel()
             // comment: here we insert the new cell to the end of asd
             // comment: Initially, all cells have negative masses, indicating that their true masses still need to be computed.
             internal_node_mass[internal_node_idx] = -1.0f;
-            // x and y is the temporary coordinate of the new internal node 
+            // x and y is the temporary coordinate of the new internal node
 
             // internal_node_posy[n] is the x position of the parent node of the new internal node
             // internal_node_posx[n] - r + x; is adjusting the position
@@ -255,108 +256,164 @@ void TreeBuildingKernel()
 
 
 __global__
-__launch_bounds__(THREADS3, FACTOR3)
 void SummarizationKernel()
 {
-  register int i, j, k, ch, inc, missing, cnt, bottom;
-  register float m, cm, px, py;
-  __shared__ volatile int child[THREADS3 * 4];
+  // register int i, j, k, ch, inc, missing, cnt, bottom;
+  // register float m, cm, px, py;
+  // __shared__ volatile int child[THREADS3 * 4];
 
   // comment: traverse from bottom to nnodesd
   // comment: bottom-up searching
-  bottom = bottomd;
+  int last_internal_node = internal_node_num;
   // comment: inc is the stride width of the cuda thread
-  inc = blockDim.x * gridDim.x;
-  k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
-  if (k < bottom)
-    k += inc;
+  int inc = blockDim.x * gridDim.x;
+
+  // k is the actual index of internal node it is responsible for (instead of `unique thread index`)
+  // TODO this is still ambiguous
+  int k = (last_internal_node & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
+  if (k >= last_internal_node)
+    k -= inc;
 
   // comment: at the start, no children is missing
-  missing = 0;
+  int missing = 0;
   // comment: notice that actions are conducted on cells
   // iterate over all cells assigned to thread
-  while (k <= nnodesd) {
+  while (k >= 0) {
     if (missing == 0) {
       // new cell, so initialize
       // comment: cm is short for cumulative mass
-      cm = 0.0f;
+      float cm = 0.0f;
       // comment: the cumulative position x and y
-      px = 0.0f;
-      py = 0.0f;
-      // comment: cnt is for storing the number of all sub-node of this node
-      cnt = 0;
+      float px = 0.0f;
+      float py = 0.0f;
+      // // comment: cnt is for storing the number of all sub-node of this node
+      // cnt = 0;
       // comment: j refers to the number of non-null-pointer children
-      j = 0;
+      // j = 0;
       // comment: traverse its four children
-      for (i = 0; i < 4; i++) {
-        ch = childd[k*4+i];
-        // comment: if this child is not null pointer (may be a cell or a body)
-        if (ch >= 0) {
+      int mask = 0;
+
+      for (int i = 0; i < 4; i++) {
+        int child = internal_node_child[k*4+i];
+        // comment: if this child is not null pointer (may be internal or leaf)
+        if (child >= 0) {
           // comment: this happens when some children is found to be null pointer
           // commnet: because j is only incremented when a non-null-pointer children is found
           // comment: when they are not equal, j should always be smaller than i
-          if (i != j) {
-            // comment: 
-            // move children to front (needed later for speed)
-            childd[k*4+i] = -1;
-            childd[k*4+j] = ch;
+          // if (i != j) {
+          //   // comment: 
+          //   // move children to front (needed later for speed)
+          //   childd[k*4+i] = -1;
+          //   childd[k*4+j] = ch;
+          // }
+          // child[missing*THREADS3+threadIdx.x] = ch;  // cache missing children
+          float m = 0.f;
+          if (child >= nbodiesd) {
+            // it is a internal node
+            m = internal_node_mass[child - nbodiesd];
+          } else {
+            // it is a leaf
+            m = leaf_node_mass[child];
           }
-          child[missing*THREADS3+threadIdx.x] = ch;  // cache missing children
-          m = massd[ch];
+          // float m = massd[ch];
           // comment: assume the mass of the child is not ready yet -> missing++
           missing++;
           if (m >= 0.0f) {
             // comment: if child is ready -> missing--
             missing--;
             // comment: if the computed child is a cell
-            if (ch >= nbodiesd) {  // count bodies (needed later)
-              // comment: countd is for storing the number of sub-nodes of a node
-              // comment: the storing can only be done only when all sub-nodes are computed
-              cnt += countd[ch] - 1;
-            }
+            // if (ch >= nbodiesd) {  // count bodies (needed later)
+            //   // comment: countd is for storing the number of sub-nodes of a node
+            //   // comment: the storing can only be done only when all sub-nodes are computed
+            //   cnt += countd[ch] - 1;
+            // }
             // add child's contribution
             cm += m;
-            px += posxd[ch] * m;
-            py += posyd[ch] * m;
+            if (child >= nbodiesd) {
+              // it is a internal node
+              px += internal_node_posx[child - nbodiesd] * m;
+              py += internal_node_posy[child - nbodiesd] * m;
+            } else {
+              // it is a leaf node
+              px += leaf_node_posx[child] * m;
+              py += leaf_node_posy[child] * m;
+            }
+          } else {
+            // add it the mask for next processing stage
+            mask |= (1 << i);
           }
-          j++;
+          // j++;
         }
       }
-      cnt += j;
+      // cnt += j;
     }
 
     // comment: some children are still not computed
     if (missing != 0) {
-      do {
-        // poll missing child
-        ch = child[(missing-1)*THREADS3+threadIdx.x];
-        // comment: poll the mass
-        m = massd[ch];
-        if (m >= 0.0f) {
-          // child is now ready
-          missing--;
-          if (ch >= nbodiesd) {
-            // count bodies (needed later)
-            cnt += countd[ch] - 1;
-          }
-          // add child's contribution
-          cm += m;
-          px += posxd[ch] * m;
-          py += posyd[ch] * m;
+      // do {
+      //   // poll missing child
+      //   ch = child[(missing-1)*THREADS3+threadIdx.x];
+      //   // comment: poll the mass
+      //   m = massd[ch];
+      //   if (m >= 0.0f) {
+      //     // child is now ready
+      //     missing--;
+      //     if (ch >= nbodiesd) {
+      //       // count bodies (needed later)
+      //       cnt += countd[ch] - 1;
+      //     }
+      //     // add child's contribution
+      //     cm += m;
+      //     px += posxd[ch] * m;
+      //     py += posyd[ch] * m;
+      //   }
+      //   // repeat until we are done or child is not ready
+      // } while ((m >= 0.0f) && (missing != 0));
+
+      for (i = 0; i < 4; i++) {
+        // poll missing children
+        if ((mask & (1 << i)) == 0) {
+          // it was not missing
+          continue;
         }
-        // repeat until we are done or child is not ready
-      } while ((m >= 0.0f) && (missing != 0));
+
+        int child = internal_node_child[k*4+i];
+        if (child < 0) {
+          // when this children is null pointer, skip it
+          continue;
+        } else {
+          // if it is leaf node, ignore it because it was computed already
+          if (child >= nbodiesd) {
+            // solve the children one by one
+            while (1) {
+              // it is a internal node
+              m = internal_node_mass[child];
+              if (m < 0.0f) {
+                // if the internal node is not ready; keep retrying
+                continue;
+              } else {
+                // the internal is ready
+                missing--;
+                cm += m;
+                px += internal_node_posx[child - nbodiesd] * m;
+                py += internal_node_posy[child - nbodiesd] * m;
+                break;
+              }
+            }
+          }
+        }
+      }
     }
 
     if (missing == 0) {
       // all children are ready, so store computed information
-      countd[k] = cnt;
+      // countd[k] = cnt;
       m = 1.0f / cm;
-      posxd[k] = px * m;
-      posyd[k] = py * m;
+      internal_node_posx[k] = px * m;
+      internal_node_posy[k] = py * m;
       __threadfence();  // make sure data are visible before setting mass
-      massd[k] = cm;
-      k += inc;  // move on to next cell
+      internal_node_mass[k] = cm;
+      k -= inc;  // move on to next cell
     }
   }
 }
