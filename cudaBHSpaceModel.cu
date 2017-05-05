@@ -6,8 +6,9 @@
 #define NULL_BODY (-1)
 #define LOCK (-2)
 
+#define printf(...) 
+
 // thread count for a block
-#define THREADS1 512  /* must be a power of 2 */
 #define THREADS2 1024
 #define THREADS3 1024
 #define THREADS4 256
@@ -15,7 +16,6 @@
 #define THREADS6 512
 
 // block count = factor * #SMs
-#define FACTOR1 3
 #define FACTOR2 1
 #define FACTOR3 1  /* must all be resident at the same time */
 #define FACTOR4 1  /* must all be resident at the same time */
@@ -25,149 +25,90 @@
 #define WARPSIZE 32
 #define MAXDEPTH 32
 
-// data on the device
-__constant__ int nnodesd, nbodiesd;
+// nbodiesd -> number of leaf nodes
+__constant__ int nbodiesd;
+// dtimed -> update interval
 __constant__ float dtimed, dthfd, epssqd, itolsqd;
-__constant__ volatile float *massd, *posxd, *posyd, *velxd, *velyd, *accxd, *accyd;
-__constant__ volatile float *maxxd, *maxyd, *minxd, *minyd;
-__constant__ volatile int *errd, *sortd, *childd, *countd, *startd;
+// leaf node information, transfer from CPU to GPU
+__constant__ volatile float *leaf_node_mass, *leaf_node_posx, *leaf_node_posy, *leaf_node_velx, *leaf_node_vely, *leaf_node_accx, *leaf_node_accy;
+// internal node information, generated in GPU, should be cudaMalloc-ed
+__device__ volatile int internal_node_num;    // <= nbodiesd
+__constant__ volatile int *internal_node_child;   // 4 x nbodiesd
+__constant__ volatile int *internal_node_mass;    // nbodiesd
+__constant__ volatile int *internal_node_posx;    // nbodiesd
+__constant__ volatile int *internal_node_posy;    // nbodiesd
 
-__device__ volatile int stepd, bottomd, maxdepthd, blkcntd;
+// maxdepthd is for accelerating computation, can be ignored
+// __device__ volatile int maxdepthd;
+
+// TODO placed in __constant__
 __device__ volatile float radiusd;
 
 
 __global__ void InitializationKernel() {
-    *errd = 0;
-    stepd = -1;
-    maxdepthd = 1;
-    blkcntd = 0;
-}
-
-__global__
-void BoundingBoxKernel()
-{
-  register int i, j, k, inc;
-  register float val, minx, maxx, miny, maxy;
-  __shared__ volatile float sminx[THREADS1], smaxx[THREADS1], sminy[THREADS1], smaxy[THREADS1];
-
-  // initialize with valid data (in case #bodies < #threads)
-  minx = maxx = posxd[0];
-  miny = maxy = posyd[0];
-
-  // scan all bodies
-  i = threadIdx.x;
-  inc = THREADS1 * gridDim.x;
-  for (j = i + blockIdx.x * THREADS1; j < nbodiesd; j += inc) {
-    val = posxd[j];
-    minx = min(minx, val);
-    maxx = max(maxx, val);
-    val = posyd[j];
-    miny = min(miny, val);
-    maxy = max(maxy, val);
-  }
-
-  // reduction in shared memory
-  sminx[i] = minx;
-  smaxx[i] = maxx;
-  sminy[i] = miny;
-  smaxy[i] = maxy;
-
-  for (j = THREADS1 / 2; j > 0; j /= 2) {
-    __syncthreads();
-    if (i < j) {
-      k = i + j;
-      sminx[i] = minx = min(minx, sminx[k]);
-      smaxx[i] = maxx = max(maxx, smaxx[k]);
-      sminy[i] = miny = min(miny, sminy[k]);
-      smaxy[i] = maxy = max(maxy, smaxy[k]);
-    }
-  }
-
-  // write block result to global memory
-  if (i == 0) {
-    k = blockIdx.x;
-    minxd[k] = minx;
-    maxxd[k] = maxx;
-    minyd[k] = miny;
-    maxyd[k] = maxy;
-
-    inc = gridDim.x - 1;
-    if (inc == atomicInc((unsigned int *)&blkcntd, inc)) {
-      // I'm the last block, so combine all block results
-      for (j = 0; j <= inc; j++) {
-        minx = min(minx, minxd[j]);
-        maxx = max(maxx, maxxd[j]);
-        miny = min(miny, minyd[j]);
-        maxy = max(maxy, maxyd[j]);
-      }
-
-      // compute 'radius'
-      radiusd = max(maxx - minx, maxy - miny) * 0.5;
-
-      // create root node
-      k = nnodesd;
-      bottomd = k;
-
-      massd[k] = -1.0f;
-      startd[k] = 0;
-      posxd[k] = (minx + maxx) * 0.5f;
-      posyd[k] = (miny + maxy) * 0.5f;
-      k *= 4;
-      for (i = 0; i < 4; i++) 
-        childd[k + i] = -1;
-
-      stepd++;
-    }
-  }
+    printf("initialization kernel\n");
+    // the below steps are originally done in another kernel
+    radiusd = 700.f;
+    int k = 0; // root node placed at first place
+    for (int i = 0; i < 4; i++)
+      internal_node_child[4 * k + i] = -1;
+    internal_node_mass[k] = -1.0f;
+    internal_node_posx[k] = 500.f;
+    internal_node_posy[k] = 300.f;
+    internal_node_num = 1;  // root
 }
 
 
 __global__
-__launch_bounds__(THREADS2, FACTOR2)
 void TreeBuildingKernel()
 {
-  register int i, j, k, depth, localmaxdepth, skip, inc;
-  register float x, y, r;
-  register float px, py;
-  register int ch, n, cell, locked, patch;
-  register float radius, rootx, rooty;
+  // register int i, j, k, depth, localmaxdepth, skip, inc;
+  // register float x, y, r;
+  // register float px, py;
+  // register int ch, n, cell, locked, patch;
+  // register float radius, rootx, rooty;
 
   // cache root data
-  radius = radiusd;
+  float radius = radiusd;
   // nnodesd is the number of 
-  rootx = posxd[nnodesd];
-  rooty = posyd[nnodesd];
+  float rootx = internal_node_posx[0];
+  float rooty = internal_node_posy[0];
 
-  // comments: why need recording depth at all??
-  localmaxdepth = 1;
-  skip = 1;
-  inc = blockDim.x * gridDim.x;
-  i = threadIdx.x + blockIdx.x * blockDim.x;
+  // comments: why need recording depth at all, not necessary, seem not to save computation
+  // localmaxdepth = 1;
+  // skip = 1;
+
+  // After each thread finishes its work at current index, increment each of them by the total number of threads running in the grid, which is blockDim.x*gridDim.x
+  int inc = blockDim.x * gridDim.x;
+  // current thread id
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
 
   // iterate over all bodies assigned to thread
   // comment: a simple comparison of the array index with the number of bodies determines whether the index points to a cell or a body
   // comment: since i is the unique thread id, if not properly scheduled, many thread resources may be wasted
   // comment: this one looks strange
   while (i < nbodiesd) {
-    if (skip != 0) {
-      // comment: do only once when the thread try this body for the first time
-      // comment: when retrying, we don't want to start ahead again
-      // comment: instead, we want to start from where we left off
-      // new body, so start traversing at root
-      skip = 0;
-      px = posxd[i];
-      py = posyd[i];
-      n = nnodesd;
-      // comment: the depth 
-      depth = 1;
-      r = radius;
-      // comment: j is the index of children (of a node)
-      j = 0;
-      // determine which child to follow
-      // comment: left up - 2; right up - 3; left down - 0; right down - 1
-      if (rootx < px) j = 1;
-      if (rooty < py) j += 2;
-    }
+    // if (skip != 0) {
+    // comment: do only once when the thread try this body for the first time
+    // comment: when retrying, we don't want to start ahead again
+    // comment: instead, we want to start from where we left off
+    // new body, so start traversing at root
+    // skip = 0;
+
+    // its original coordinate
+    int px = leaf_node_posx[i];
+    int py = leaf_node_posy[i];
+    // n = nnodesd;
+    int n = 0;  // root
+    // comment: the depth 
+    r = radius;
+    // comment: j is the index of children (of a node)
+    j = 0;
+    // determine which child to follow
+    // comment: left up - 2; right up - 3; left down - 0; right down - 1
+    if (rootx < px) j = 1;
+    if (rooty < py) j += 2;
+    // }
 
     // follow path to leaf cell
     // comment: childd is a specialized array for storing the children nodes
@@ -176,105 +117,140 @@ void TreeBuildingKernel()
     // comment: ch is the value of that child node, possibly pointing to another node, possibly just -1 (null pointer)
     // comment: if didin't skip, this should point to children of root node
     // comment: if did skip, it probably point to something else
-    ch = childd[n*4+j];
+
+    // start with the children of root
+    int child = internal_node_child[j];
     // comment: in some code sections, we need to find out whether an index refers to a body or to null. Because −1 is also smaller than the number of bodies, a single integer comparison suffices to test both conditions.
     // comment: if ch >= nbodiesd, the child already points to a cell, then go find some place in its children
-    while (ch >= nbodiesd) {
-      n = ch;
+    while (child >= nbodiesd) {
+      // the - nbodiesd is for differentiating internal node and leaf node
+      n = child - nbodiesd;
       // find it in the next level
-      depth++;
       r *= 0.5f;
       // comment: reset j
       j = 0;
       // determine which child to follow
-      if (posxd[n] < px) j = 1;
-      if (posyd[n] < py) j += 2;
-      ch = childd[n*4+j];
+      if (internal_node_posx[n] < px) j = 1;
+      if (internal_node_posy[n] < py) j += 2;
+      child = internal_node_child[n*4+j];
     }
     // comment: finally found a null pointer (-1 <= nbodiesd) or a body (since the id of bodies is <= nbodiesd)
     // comment: this two situations are reflected below
 
     // skip if child pointer is locked and try again later
-    if (ch != -2) {
+    if (child != -2) {
       // comment: if it is not locked, try to lock it
-      locked = n*4+j;
+      int locked = n*4+j;
       // try to lock. However, it is still possible to fail because of contention
       // comments: if fail, also try again later
-      if (ch == atomicCAS((int *)&childd[locked], ch, -2)) {
-        if (ch == -1) { // if it is a null pointer, just insert the new body
-          childd[locked] = i;
+      if (child == atomicCAS((int *)&internal_node_child[locked], child, -2)) {
+        // locked, child has the original value
+        if (child == -1) { // if it is a null pointer, just insert the new body
+          internal_node_child[locked] = i;
         } else {  // there already is a body in this position
-          patch = -1;
+          // there are no more than nbodiesd internal nodes
+          patch = nbodiesd + 1;
           // create new cell(s) and insert the old and new body
           // comment: you can't do summarization at the same time as you insert new ones (really?)
           // comment: because, if you do so, you have traverse backward to the root (still doable?)
+          
+          // create new internal node
+
+          // compute the center of this internal node
+
+          // place the old node into the children of this new internal node
+            // computer j
+            // insert
+
+          // computer the child position the new node should be in
+            // see if it collides with the old node
+            // if so, continue newing internal node and repeat the process
+            // if not, insert and end this
           do {
-            depth++;
+            // depth++;
 
             // comment: the new cell is "allocated" from the bottom, according to the thesis
             // comment: remember that this is not actual allocation. it is like assignment 2/3
             // comment: cell is the index of the new cell
-            cell = atomicSub((int *)&bottomd, 1) - 1;
-            if (cell <= nbodiesd) {
-              // comment: cells + bodies should be less than the size of the array
-              // comment: if it is more than, they collide and error
-              *errd = 1;
-              bottomd = nnodesd;
-            }
-            // comment: why do we need patch?????????????
-            patch = max(patch, cell);
 
-            x = (j & 1) * r;
-            y = ((j >> 1) & 1) * r;
+            // this is not like GPU CAS; it must will succeed
+            // the retry mechanism is hidden from programmers
+            // only return the old value, so we need to + 1
+            int internal_node_idx = atomicAdd((int *)&internal_node_num, 1) + 1;
+            // if (cell <= nbodiesd) {
+            //   // comment: cells + bodies should be less than the size of the array
+            //   // comment: if it is more than, they collide and error
+            //   // *errd = 1;
+            //   bottomd = nnodesd;
+            // }
+
+            // comment: why do we need patch? because we need to unlock the uppest level
+            // comment: when the insertion completes
+            // take the value of internal_node_idx only once (in the uppest level)
+            // and that's why we have to internal_node_child[locked] = patch; after insertion
+            
+            // in the original solution, internal_node_idx descend from nnodesd
+            // however, in the modified version, internal_node_idx ascend
+            // so we use min instead of max; and the initial value of patch is changed accordingly
+
+            patch = min(patch, internal_node_idx);
+
+            int x = (j & 1) * r;
+            int y = ((j >> 1) & 1) * r;
             r *= 0.5f;
 
             // comment: mass will be calculated in the summarization kernel later on?
             // comment: here we insert the new cell to the end of asd
             // comment: Initially, all cells have negative masses, indicating that their true masses still need to be computed.
-            massd[cell] = -1.0f;
-            startd[cell] = -1;
-            x = posxd[cell] = posxd[n] - r + x;
-            y = posyd[cell] = posyd[n] - r + y;
+            internal_node_mass[internal_node_idx] = -1.0f;
+            // x and y is the temporary coordinate of the new internal node 
+
+            // internal_node_posy[n] is the x position of the parent node of the new internal node
+            // internal_node_posx[n] - r + x; is adjusting the position
+            x = internal_node_posx[internal_node_idx] = internal_node_posx[n] - r + x;
+            y = internal_node_posy[internal_node_idx] = internal_node_posy[n] - r + y;
             // comment: first set all children to null pointer
             for (k = 0; k < 4; k++) 
-              childd[cell*4+k] = -1;
+              internal_node_child[internal_node_idx*4+k] = -1;
 
-            // comment: ???????????????
-            if (patch != cell) {
-              childd[n*4+j] = cell;
+            // comment: if it is not the uppest level, we can add this immediately
+            // comment: since it doesn't serve as a lock
+            if (patch != internal_node_idx) {
+              // the + nbodiesd is for differentiating leaf nodes and internal nodes
+              internal_node_child[n*4+j] = internal_node_idx + nbodiesd;
             }
 
             // comment: put the old body in place
             j = 0;
-            if (x < posxd[ch]) j = 1;
-            if (y < posyd[ch]) j += 2;
-            childd[cell*4+j] = ch;
+            if (x < leaf_node_posx[child]) j = 1;
+            if (y < leaf_node_posy[child]) j += 2;
+            internal_node_child[internal_node_idx*4+j] = child;
 
-            // comment: the ch >= 0 condition is in case the old body and the new body collide in the newly allocated children
-            n = cell;
+            // comment: the child >= 0 condition is in case the old body and the new body collide in the newly allocated children
+            n = internal_node_idx;
             j = 0;
             if (x < px) j = 1;
             if (y < py) j += 2;
-            ch = childd[n*4+j];
+            child = internal_node_child[n*4+j];
             // repeat until the two bodies are different children
-          } while (ch >= 0);
+          } while (child >= 0);
           // comment: when old body and new body are no colliding anymore, put the new body in place
-          childd[n*4+j] = i;
+          internal_node_child[n*4+j] = i;
           __threadfence();  // push out subtree
-          // comment: ???????????????
-          childd[locked] = patch;
+          // the + nbodiesd is for differentiating leaf nodes and internal nodes
+          internal_node_child[locked] = patch + nbodiesd;
         }
 
-        localmaxdepth = max(depth, localmaxdepth);
+        // localmaxdepth = max(depth, localmaxdepth);
         i += inc;  // move on to next body
         // comment: for another body, will have to start all over again
-        skip = 1;
+        // skip = 1;
       }
     }
     __syncthreads();  // throttle
   }
   // record maximum tree depth
-  atomicMax((int *)&maxdepthd, localmaxdepth);
+  // atomicMax((int *)&maxdepthd, localmaxdepth);
 }
 
 
@@ -354,6 +330,7 @@ void SummarizationKernel()
       do {
         // poll missing child
         ch = child[(missing-1)*THREADS3+threadIdx.x];
+        // comment: poll the mass
         m = massd[ch];
         if (m >= 0.0f) {
           // child is now ready
@@ -434,11 +411,11 @@ void ForceCalculationKernel()
   register float px, py, ax, ay, dx, dy, tmp;
   __shared__ volatile int pos[MAXDEPTH * THREADS5/WARPSIZE], node[MAXDEPTH * THREADS5/WARPSIZE];
   __shared__ volatile float dq[MAXDEPTH * THREADS5/WARPSIZE];
-  __shared__ volatile int step, maxdepth;
+  __shared__ volatile int /*step, */maxdepth;
 
   if (0 == threadIdx.x) {
-    step = stepd;
-    maxdepth = maxdepthd;
+    // step = stepd;
+    maxdepth = MAXDEPTH;
     tmp = radiusd;
     // precompute values that depend only on tree level
     dq[0] = tmp * tmp * itolsqd;
@@ -448,7 +425,7 @@ void ForceCalculationKernel()
     }
 
     if (maxdepth > MAXDEPTH) {
-      *errd = maxdepth;
+      // *errd = maxdepth;
     }
   }
   __syncthreads();
@@ -519,14 +496,6 @@ void ForceCalculationKernel()
         depth--;  // done with this level
       }
 
-      if (step > 0) {
-        // update velocity
-        velxd[i] += (ax - accxd[i]) * dthfd;
-        // printf("velxd[i] = %f\n", velxd[i]);
-        velyd[i] += (ay - accyd[i]) * dthfd;
-        // printf("velyd[i] = %f\n", velyd[i]);
-      }
-
       // save computed acceleration
       accxd[i] = ax;
       // printf("accxd[i] = %f\n", accxd[i]);
@@ -576,48 +545,25 @@ cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objec
 
 void
 cudaBHSpaceModel::update(GS_FLOAT dt) {
-    // printf("1111111111111111\n");
     size_t i;
 #ifdef CONST_TIME
     dt = CONST_TIME;
 #endif
-    // this->tree->apply_to_objects(this->objects, dt);
-    // for (i = 0; i < objects.size(); i++) {
-    //     objects[i].update_position(dt);
-    // }
-    // remove_objects_outside_bounds();
-    // delete this->tree;
-    // this->tree = new QuadTree(this->bounds);
-    // this->tree->add_objects(this->objects);
+    int blocks = 15; // number of multiprocessor, specific to K40m
 
-    cudaFuncSetCacheConfig(BoundingBoxKernel, cudaFuncCachePreferShared);
-    cudaFuncSetCacheConfig(TreeBuildingKernel, cudaFuncCachePreferL1);
-    cudaFuncSetCacheConfig(SummarizationKernel, cudaFuncCachePreferShared);
-    cudaFuncSetCacheConfig(SortKernel, cudaFuncCachePreferL1);
-    cudaFuncSetCacheConfig(ForceCalculationKernel, cudaFuncCachePreferL1);
-    cudaFuncSetCacheConfig(IntegrationKernel, cudaFuncCachePreferL1);
-
-
-    // cudaDeviceProp deviceProp;
-    // cudaGetDeviceProperties(&deviceProp, 0);
-    // int blocks = deviceProp.multiProcessorCount;
-    int blocks = 15;
-
-    int error; // for accepting error code from device
     int nbodies = this->objects.size();
     int nnodes = nbodies * 2;
 
     if (nnodes < 1024*blocks)
       nnodes = 1024*blocks;
-    while ((nnodes & (WARPSIZE-1)) != 0) 
+    while ((nnodes & (WARPSIZE-1)) != 0)
       nnodes++;
     nnodes--;
-    // printf("2222222222222\n");
 
     float dtime, dthf, epssq, itolsq;
     dtime = dt;
     dthf = dtime * 0.5f;
-    // EPSILON; for soothing 
+    // EPSILON; for soothing
     epssq = 0.05 * 0.05;
     itolsq = 1.0f / (0.5 * 0.5);
 
@@ -626,43 +572,27 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     float *posy = (float *)malloc(sizeof(float) * nbodies);
     float *velx = (float *)malloc(sizeof(float) * nbodies);
     float *vely = (float *)malloc(sizeof(float) * nbodies);
-    int *errl, *sortl, *childl, *countl, *startl;
+    int *sortl, *childl, *countl, *startl;
     float *massl;
     float *posxl, *posyl;
     float *velxl, *velyl;
     float *accxl, *accyl;
-    float *maxxl, *maxyl;
-    float *minxl, *minyl;
-    // printf("333333333333333333\n");
-
-    // printf("333333 zhihou \n");
-    cudaMalloc((void **)&errl, sizeof(int));
+    
     cudaMalloc((void **)&childl, sizeof(int) * (nnodes + 1) * 4);
     cudaMalloc((void **)&massl, sizeof(float) * (nnodes + 1));
     cudaMalloc((void **)&posxl, sizeof(float) * (nnodes + 1));
     cudaMalloc((void **)&posyl, sizeof(float) * (nnodes + 1));
     cudaMalloc((void **)&countl, sizeof(int) * (nnodes + 1));
     cudaMalloc((void **)&startl, sizeof(int) * (nnodes + 1));
-    // printf("4444444444444444\n");
-
-    // ?????
-    int inc = (nbodies + WARPSIZE - 1) & (-WARPSIZE);
-    velxl = (float *)&childl[0*inc];
-    velyl = (float *)&childl[1*inc];
-    accxl = (float *)&childl[2*inc];
-    accyl = (float *)&childl[3*inc];
-    sortl = (int *)&childl[4*inc];
-
-    cudaMalloc((void **)&maxxl, sizeof(float) * blocks);
-    cudaMalloc((void **)&maxyl, sizeof(float) * blocks);
-    cudaMalloc((void **)&minxl, sizeof(float) * blocks);
-    cudaMalloc((void **)&minyl, sizeof(float) * blocks);
-    // printf("555555555555555555555\n");
+    cudaMalloc((void **)&velxl, sizeof(int) * (nnodes + 1));
+    cudaMalloc((void **)&velyl, sizeof(int) * (nnodes + 1));
+    cudaMalloc((void **)&accxl, sizeof(int) * (nnodes + 1));
+    cudaMalloc((void **)&accyl, sizeof(int) * (nnodes + 1));
+    cudaMalloc((void **)&sortl, sizeof(int) * (nnodes + 1));
 
     // copy the address of the array to constant memory
     cudaMemcpyToSymbol(nnodesd, &nnodes, sizeof(int));
     cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int));
-    cudaMemcpyToSymbol(errd, &errl, sizeof(void *));
     cudaMemcpyToSymbol(dtimed, &dtime, sizeof(float));
     cudaMemcpyToSymbol(dthfd, &dthf, sizeof(float));
     cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
@@ -671,11 +601,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(countd, &countl, sizeof(void *));
     cudaMemcpyToSymbol(startd, &startl, sizeof(void *));
     cudaMemcpyToSymbol(childd, &childl, sizeof(void *));
-    cudaMemcpyToSymbol(maxxd, &maxxl, sizeof(void*));
-    cudaMemcpyToSymbol(maxyd, &maxyl, sizeof(void*));
-    cudaMemcpyToSymbol(minxd, &minxl, sizeof(void*));
-    cudaMemcpyToSymbol(minyd, &minyl, sizeof(void*));
-    // printf("66666666666666666666\n");
 
     for (i = 0; i < nbodies; i++) {
         posx[i] = this->objects[i].position.x;
@@ -684,14 +609,12 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
         vely[i] = this->objects[i].speed.y;
         mass[i] = this->objects[i].mass;
     }
-    // printf("7777777777777777777777\n");
 
     cudaMemcpy(massl, mass, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(posxl, posx, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(posyl, posy, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(velxl, velx, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(velyl, vely, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
-    // printf("888888888888888888\n");
 
     cudaMemcpyToSymbol(massd, &massl, sizeof(void *));
     cudaMemcpyToSymbol(posxd, &posxl, sizeof(void *));
@@ -700,25 +623,18 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(velyd, &velyl, sizeof(void *));
     cudaMemcpyToSymbol(accxd, &accxl, sizeof(void *));
     cudaMemcpyToSymbol(accyd, &accyl, sizeof(void *));
-    // printf("999999999999999999\n");
 
     InitializationKernel <<< 1, 1>>>();
-    BoundingBoxKernel<<<blocks * FACTOR1, THREADS1>>>();
     TreeBuildingKernel <<< blocks *FACTOR2, THREADS2>>>();
     SummarizationKernel <<< blocks *FACTOR3, THREADS3>>>();
     SortKernel <<< blocks *FACTOR4, THREADS4>>>();
     ForceCalculationKernel <<< blocks *FACTOR5, THREADS5>>>();
     IntegrationKernel <<< blocks *FACTOR6, THREADS6>>>();
-    // printf("10101010101010110\n");
 
-
-    // printf("begin copying\n");
-    cudaMemcpy(&error, errl, sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(posy, posyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(velx, velxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(vely, velyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
-    // printf("done copying\n");
 
     // update posx, posy, velx, vely to this->objects array
     for (i = 0; i < nbodies; i++) {
@@ -728,13 +644,12 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
         this->objects[i].speed.y = vely[i];
         this->objects[i].mass = mass[i];
     }
-    // printf("2333333333333333333\n");
 
     remove_objects_outside_bounds();
 
-    delete this->tree;
-    this->tree = new QuadTree(this->bounds);
-    this->tree->add_objects(this->objects);
+    // delete this->tree;
+    // this->tree = new QuadTree(this->bounds);
+    // this->tree->add_objects(this->objects);
 
     free(mass);
     free(posx);
@@ -742,18 +657,17 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     free(velx);
     free(vely);
 
-    cudaFree(errl);
     cudaFree(childl);
     cudaFree(massl);
     cudaFree(posxl);
     cudaFree(posyl);
     cudaFree(countl);
     cudaFree(startl);
-
-    cudaFree(maxxl);
-    cudaFree(maxyl);
-    cudaFree(minxl);
-    cudaFree(minyl);
+    cudaFree(velxl);
+    cudaFree(velyl);
+    cudaFree(accxl);
+    cudaFree(accyl);
+    cudaFree(sortl);
 }
 
 cudaBHSpaceModel::~cudaBHSpaceModel() {
