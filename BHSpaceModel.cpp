@@ -1,4 +1,3 @@
-#include <ctime>
 #include "BHSpaceModel.h"
 #include "log.h"
 
@@ -12,13 +11,6 @@ BHSpaceModel::BHSpaceModel(RectangleD bounds, std::vector<Object> &objects, Scre
         return;
     }
 } 
-
-double 
-get_timediff (timespec &ts1, timespec &ts2) {
-    double sec_diff = difftime(ts1.tv_sec, ts2.tv_sec);
-    long nsec_diff = ts1.tv_nsec - ts2.tv_nsec;
-    return sec_diff * 1000000000 + nsec_diff;
-}
 
 void 
 BHSpaceModel::update(GS_FLOAT dt) {
@@ -52,12 +44,12 @@ BHSpaceModel::update(GS_FLOAT dt) {
     double rebuild_tree_time = get_timediff(six, five);
     double total_time = applying_force_time + update_position_time + rebuild_tree_time;
     
-    DBG("applying_force_time = %.16f\n", applying_force_time);
-    DBG("update_position_time = %.16f\n", update_position_time);
-    DBG("rebuild_tree_time = %.16f\n", rebuild_tree_time);
-    DBG("apply force: %.16f%%\n", applying_force_time / total_time * 100);
-    DBG("update position: %.16f%%\n", update_position_time / total_time * 100);
-    DBG("rebuild tree: %.16f%%\n", rebuild_tree_time / total_time * 100);
+    PERF("applying_force_time = %.16f\n", applying_force_time);
+    PERF("update_position_time = %.16f\n", update_position_time);
+    PERF("rebuild_tree_time = %.16f\n", rebuild_tree_time);
+    PERF("apply force: %.16f%%\n", applying_force_time / total_time * 100);
+    PERF("update position: %.16f%%\n", update_position_time / total_time * 100);
+    PERF("rebuild tree: %.16f%%\n", rebuild_tree_time / total_time * 100);
 }
 
 /**

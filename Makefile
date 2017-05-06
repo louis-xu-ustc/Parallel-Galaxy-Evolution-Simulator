@@ -40,13 +40,13 @@ LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
 NVCC=nvcc
 
 OBJS=$(OBJDIR)/main.o $(OBJDIR)/Object.o $(OBJDIR)/Perf.o $(OBJDIR)/QuadTree.o \
-     $(OBJDIR)/Report.o $(OBJDIR)/Screen.o $(OBJDIR)/SpaceController.o $(OBJDIR)/SpaceModel.o \
+     $(OBJDIR)/Report.o $(OBJDIR)/Screen.o $(OBJDIR)/SpaceController.o  \
      $(OBJDIR)/SpaceView.o  $(OBJDIR)/basic_types.o \
-	 $(OBJDIR)/FMMSpaceModel.o \
+	 $(OBJDIR)/SpaceModel.o \
 	 $(OBJDIR)/BHSpaceModel.o  \
-	 $(OBJDIR)/MortonSpaceModel.o  \
-	 $(OBJDIR)/MortonTree.o	\
-	 $(OBJDIR)/cudaBHSpaceModel.o
+	 $(OBJDIR)/MortonTree.o	$(OBJDIR)/MortonSpaceModel.o  \
+	 $(OBJDIR)/cudaBHSpaceModel.o	\
+	 $(OBJDIR)/cudaMortonSpaceModel.o
 
 .PHONY: dirs clean
 

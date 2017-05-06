@@ -7,7 +7,7 @@
 
 class MortonTreeObject : public Object {
     public:
-        unsigned int mcode;
+        unsigned long mcode;    // 8bytes
         // store the index of cell that contians the MortonTreeObject
         int parent;
 

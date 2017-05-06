@@ -11,15 +11,16 @@
 #include "BHSpaceModel.h"
 #include "cudaBHSpaceModel.h"
 #include "MortonSpaceModel.h"
-
+#include "cudaMortonSpaceModel.h"
 
 #define WINDOW_TITLE "GravitySim"
 #define SUCCESS 0
 #define FAILURE 1
 
-#define ENABLE_SEQ_BARNES
+//#define ENABLE_SEQ_BARNES
 #define ENABLE_SEQ_MORTON
-#define ENABLE_CUDA_BARNES
+//#define ENABLE_CUDA_BARNES
+#define ENABLE_CUDA_MORTON
 
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
@@ -48,9 +49,11 @@ int main(int argc, const char * argv[]) {
 #ifdef ENABLE_SEQ_MORTON
     SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
 #endif
-    // TODO
 #ifdef ENABLE_CUDA_BARNES
     SpaceModel *cudaBarnesHutModel = new cudaBHSpaceModel(config.model_bounds, controller->get_objects(), screen);
+#endif
+#ifdef ENABLE_CUDA_MORTON
+    SpaceModel *cudaMortonModel = new cudaMortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
 #endif
     // SpaceModel *seqFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
     // Perf *seqFMMPerf = new Perf(config.loop_times, "seqFMMPerf");
@@ -74,6 +77,12 @@ int main(int argc, const char * argv[]) {
     Perf *cudaBHPerf = new Perf(config.loop_times, "cudaBarnes");
     execute_model(controller, cudaBarnesHutModel, cudaBHPerf);
     report->addReport(*cudaBHPerf);
+#endif
+#ifdef ENABLE_CUDA_MORTON
+    // cudaMorton
+    Perf *cudaMortonPerf = new Perf(config.loop_times, "cudaMorton");
+    execute_model(controller, cudaMortonModel, cudaMortonPerf);
+    report->addReport(*cudaMortonPerf);
 #endif
     // seqFMM
     // cudaFMM
@@ -131,6 +140,7 @@ static void gl_close(void) {
 void print_usage(const char *program_name) {
     printf("Usage:%s loop_times number_of_galaxies objects_per_galaxy galaxy_size\n", program_name);
     printf("Using default config.\n");
+    printf("Exp: ./gravitysim 1000 4 1000 100\n");
 }
 
 SimulationConfig get_config(int argc, const char *argv[]) {

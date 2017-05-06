@@ -14,6 +14,7 @@
 #include "build_config.h"
 #include <math.h>
 #include <algorithm>
+#include <ctime>
 
 typedef struct {
     int x;
@@ -193,11 +194,15 @@ static GS_INLINE unsigned int expandBits(unsigned int v) {
  * Calculates a 30-bit Morton code for the given 2D point located within the unit square [0,1].
  * [Referece] https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
  */
-static GS_INLINE unsigned int mortan2D(GS_FLOAT x, GS_FLOAT y, RectangleD rect) {
-    GS_FLOAT xx = std::min(std::max(x * rect.size.x, 0.0f), rect.size.x - 1);
-    GS_FLOAT yy = std::min(std::max(y * rect.size.y, 0.0f), rect.size.y - 1);
-    unsigned int e_xx = expandBits((unsigned int)xx);
-    unsigned int e_yy = expandBits((unsigned int)yy);
+static GS_INLINE unsigned long mortan2D(GS_FLOAT x, GS_FLOAT y, RectangleD rect) {
+    GS_DOUBLE xx = std::min(std::max(x * rect.size.x, 0.0f), rect.size.x - 1);
+    GS_DOUBLE yy = std::min(std::max(y * rect.size.y, 0.0f), rect.size.y - 1);
+    unsigned int xxHigh = (unsigned int)(((unsigned long)xx) >> 32);
+    unsigned int xxLow = (unsigned int)((unsigned long)xx & 0x00000000FFFFFFFF);
+    unsigned int yyHigh = (unsigned int)(((unsigned long)yy) >> 32);
+    unsigned int yyLow = (unsigned int)((unsigned long)yy & 0x00000000FFFFFFFF);
+    unsigned long e_xx = (((unsigned long)expandBits(xxHigh)) << 32) | (expandBits(xxLow));
+    unsigned long e_yy = (((unsigned long)expandBits(yyHigh)) << 32) | (expandBits(yyLow));
     return 2 * e_xx + e_yy;
 }
 
@@ -205,8 +210,8 @@ static GS_INLINE unsigned int mortan2D(GS_FLOAT x, GS_FLOAT y, RectangleD rect) 
  * This algorithm uses a hybrid approach of bi-section to find out which 8-bit chunk of the 32-bit number contains the first 1-bit, which is followed by a lookup table clz_lkup[] to find the first 1-bit within the byte
  * [Referece] http://embeddedgurus.com/state-space/2014/09/fast-deterministic-and-portable-counting-leading-zeros/
  */
-static GS_INLINE uint32_t CLZ(uint32_t x) {
-    static uint8_t const clz_lkup[] = {
+static GS_INLINE unsigned int CLZ(unsigned int x) {
+    static unsigned char const clz_lkup[] = {
         32U, 31U, 30U, 30U, 29U, 29U, 29U, 29U,
         28U, 28U, 28U, 28U, 28U, 28U, 28U, 28U,
         27U, 27U, 27U, 27U, 27U, 27U, 27U, 27U,
@@ -240,7 +245,7 @@ static GS_INLINE uint32_t CLZ(uint32_t x) {
         24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U,
         24U, 24U, 24U, 24U, 24U, 24U, 24U, 24U
     };
-    uint32_t n;
+    unsigned int n;
     if (x >= (1U << 16)) {
         if (x >= (1U << 24)) {
             n = 24U;
@@ -257,86 +262,63 @@ static GS_INLINE uint32_t CLZ(uint32_t x) {
             n = 0U;
         }
     }
-    return (uint32_t)clz_lkup[x >> n] - n;
+    return (unsigned int)clz_lkup[x >> n] - n;
 }
 
 /**
  * get the level mask used for constructing an OrcTree
  */
-#if 0
-static GS_INLINE unsigned int get_level_mask(int level) {
-    if (level < 0) {
-        printf("Invalid level for the tree");
-        return 0x00000000u;
-    }
+static unsigned long mask_table[] = {
+    0x0000000000000000u,
 
-    unsigned int res;
-    switch (level) {
-        case 0:
-            res = 0x00000000u;
-            break;
-        case 1:
-            res = 0x38000000u;
-            break;
-        case 2:
-            res = 0x3F000000u;
-            break;
-        case 3:
-            res = 0x3FE00000u;
-            break;
-        case 4:
-            res = 0x3FFC0000u;
-            break;
-        case 5:
-            res = 0x3FFF8000u;
-            break;
-        case 6:
-            res = 0x3FFFF000u;
-            break;
-        case 7:
-            res = 0x3FFFFE00u;
-            break;
-        case 8:
-            res = 0x3FFFFFC0u;
-            break;
-        case 9:
-            res = 0x3FFFFFF8u;
-            break;
-        default:                // level >= 10
-            res = 0x3FFFFFFFu;
-            break;
-    }
-    return res;
-}
-#else
-static unsigned int mask_table[] = {
-    0x00000000u,
-    0x30000000u,
-    0x3C000000u,
-    0x3F000000u,
-    0x3FC00000u,
-    0x3FF00000u,
-    0x3FFC0000u,
-    0x3FFF0000u,
-    0x3FFFC000u,
-    0x3FFFF000u,
-    0x3FFFFC00u,
-    0x3FFFFF00u,
-    0x3FFFFFC0u,
-    0x3FFFFFF0u,
-    0x3FFFFFFCu,
-    0x3FFFFFFFu,
+    0x3000000000000000u,
+    0x3C00000000000000u,
+    0x3F00000000000000u,
+    0x3FC0000000000000u,
+    0x3FF0000000000000u,
+    0x3FFC000000000000u,
+    0x3FFF000000000000u,
+    0x3FFFC00000000000u,
+    0x3FFFF00000000000u,
+    0x3FFFFC0000000000u,
+    0x3FFFFF0000000000u,
+    0x3FFFFFC000000000u,
+    0x3FFFFFF000000000u,
+    0x3FFFFFFC00000000u,
+    0x3FFFFFFF00000000u,
+    
+    0x3FFFFFFF30000000u,
+    0x3FFFFFFF3C000000u,
+    0x3FFFFFFF3F000000u,
+    0x3FFFFFFF3FC00000u,
+    0x3FFFFFFF3FF00000u,
+    0x3FFFFFFF3FFC0000u,
+    0x3FFFFFFF3FFF0000u,
+    0x3FFFFFFF3FFFC000u,
+    0x3FFFFFFF3FFFF000u,
+    0x3FFFFFFF3FFFFC00u,
+    0x3FFFFFFF3FFFFF00u,
+    0x3FFFFFFF3FFFFFC0u,
+    0x3FFFFFFF3FFFFFF0u,
+    0x3FFFFFFF3FFFFFFCu,
+    0x3FFFFFFF3FFFFFFFu,
 };
 
-static GS_INLINE unsigned int get_level_mask(int level) {
+static GS_INLINE unsigned long get_level_mask(int level) {
     if (level <= 0) {
-        return 0x00000000u;
+        return 0x0000000000000000u;
     }
-    if (level >= 15) {
-        return 0x3FFFFFFFu;
+    if (level >= 30) {
+        return 0x3FFFFFFF3FFFFFFFu;
     }
     return mask_table[level];
 }
-#endif
+
+static GS_INLINE GS_DOUBLE
+get_timediff (timespec &ts1, timespec &ts2) {
+    double sec_diff = difftime(ts1.tv_sec, ts2.tv_sec);
+    long nsec_diff = ts1.tv_nsec - ts2.tv_nsec;
+    return sec_diff * 1000000000 + nsec_diff;
+}
 
 #endif
