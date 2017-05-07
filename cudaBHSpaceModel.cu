@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <cmath>
 #include "cuda.h"
 #include "cudaBHSpaceModel.h"
+#include "build_config.h"
 
 
 #define NULL_BODY (-1)
@@ -419,146 +421,72 @@ void SummarizationKernel()
 }
 
 
-__global__
-__launch_bounds__(THREADS4, FACTOR4)
-void SortKernel()
-{
-  register int i, k, ch, dec, start, bottom;
+__device__
+float2 CalculateForceOnLeafNode(int leaf_node, int depth, int target_node) {
+  // notice: float2 overloads + (part of cuda runtime)
+  // depth is for calculating region size (radiusd / (2^depth)); the depth of root is 0
+  // target_node is the index in internel_node_child
 
-  bottom = bottomd;
-  // comment: stride, just like inc 
-  dec = blockDim.x * gridDim.x;
-  k = nnodesd + 1 - dec + threadIdx.x + blockIdx.x * blockDim.x;
+  // when target_node < 0, this is a null children
+  if (target_node < 0) {
+    // it is null children
+    return make_float2(0.f, 0.f);
+  }
 
-  // iterate over all cells assigned to thread
-  while (k >= bottom) {
-    // comment: the startd is used to signify the boundary in the sortd array
-    // comment: it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
-    start = startd[k];
-    // comment: this is quite like kernel 3, if the start is still -1, it keeps polling until the start is ready
-    // comment: at the start, only root is able to compute because only its start is not -1 (it is 0)
-    // comment: start serves both purpose, one is for signify whether it can start, another is for signify the area it puts its elements
-    if (start >= 0) {
-      // comment: traverse from left child to right child
-      for (i = 0; i < 4; i++) {
-        // comment: iterate through the children of the cell
-        ch = childd[k*4+i];
-        if (ch >= nbodiesd) {
-          // child is a cell
-          startd[ch] = start;  // set start ID of child
-          start += countd[ch];  // add #bodies in subtree
-        } else if (ch >= 0) {
-          // child is a body
-          sortd[start] = ch;  // record body in 'sorted' array
-          start++;
-        }
-      }
-      k -= dec;  // move on to next cell
-    }
-    __syncthreads();  // throttle
+  float ax = 0.f, ay = 0.f;
+  // if the target_node is a leaf node, simply calculate the force and return
+  if (target_node >= 0 && target_node < nbodiesd) {
+    float px = leaf_node_posx[leaf_node];
+    float py = leaf_node_posy[leaf_node];
+
+    float dx = leaf_node_posx[target_node] - px;
+    float dy = leaf_node_posy[target_node] - py;
+
+    float tmp = dx*dx + (dy*dy + epssqd);
+    tmp = rsqrtf(tmp);  // compute distance
+    tmp = leaf_node_mass[target_node] * tmp * tmp;
+    ax += dx * tmp;
+    ay += dy * tmp;
+    return make_float2(ax, ay);
+  }
+
+  // otherwise, calculate s/d, where s is the size of the region (of the target_node) 
+  // and d is the actual distance
+  target_node -= nbodiesd;   // conversion
+  float s = radiusd / std::pow(2, depth);
+  float d = 0.f;
+  float px = leaf_node_posx[leaf_node];
+  float py = leaf_node_posy[leaf_node];
+  float dx = internal_node_posx[target_node] - px;
+  float dy = internal_node_posy[target_node] - py;
+  d = rsqrtf(dx*dx + (dy*dy + epssqd));  // d is the actual distance
+
+  // if s/d < θ (SD_TRESHOLD), see the internal node as an object, calculate the force and return
+  if ((s/d) < SD_TRESHOLD) {
+    ax += dx * d;
+    ay += dy * d;
+    return make_float2(ax, ay);
+  }
+
+  // if s/d >= θ, do the above recursively on every child of the target_node
+  if ((s/d) >= SD_TRESHOLD) {
+    return CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4]) + \
+    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 1]) +    \
+    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 2]) +    \
+    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3])
   }
 }
 
-
 __global__
-__launch_bounds__(THREADS5, FACTOR5)
+// __launch_bounds__(THREADS5, FACTOR5)
 void ForceCalculationKernel()
 {
-  register int i, j, k, n, depth, base, sbase, diff;
-  register float px, py, ax, ay, dx, dy, tmp;
-  __shared__ volatile int pos[MAXDEPTH * THREADS5/WARPSIZE], node[MAXDEPTH * THREADS5/WARPSIZE];
-  __shared__ volatile float dq[MAXDEPTH * THREADS5/WARPSIZE];
-  __shared__ volatile int /*step, */maxdepth;
-
-  if (0 == threadIdx.x) {
-    // step = stepd;
-    maxdepth = MAXDEPTH;
-    tmp = radiusd;
-    // precompute values that depend only on tree level
-    dq[0] = tmp * tmp * itolsqd;
-    for (i = 1; i < maxdepth; i++) {
-      // 
-      dq[i] = dq[i - 1] * 0.25f;
-    }
-
-    if (maxdepth > MAXDEPTH) {
-      // *errd = maxdepth;
-    }
-  }
-  __syncthreads();
-
-  if (maxdepth <= MAXDEPTH) {
-    // figure out first thread in each warp (lane 0)
-    base = threadIdx.x / WARPSIZE;
-    sbase = base * WARPSIZE;
-    j = base * MAXDEPTH;
-
-    diff = threadIdx.x - sbase;
-    // make multiple copies to avoid index calculations later
-    if (diff < MAXDEPTH) {
-      dq[diff+j] = dq[diff];
-    }
-    __syncthreads();
-
-    // iterate over all bodies assigned to thread
-    for (k = threadIdx.x + blockIdx.x * blockDim.x; k < nbodiesd; k += blockDim.x * gridDim.x) {
-      i = sortd[k];  // get permuted/sorted index
-      // cache position info
-      px = posxd[i];
-      py = posyd[i];
-
-      ax = 0.0f;
-      ay = 0.0f;
-
-      // initialize iteration stack, i.e., push root node onto stack
-      depth = j;
-      if (sbase == threadIdx.x) {
-        node[j] = nnodesd;
-        pos[j] = 0;
-      }
-      __threadfence();  // make sure it's visible
-
-      while (depth >= j) {
-        // stack is not empty
-        while (pos[depth] < 4) {
-          // node on top of stack has more children to process
-          n = childd[node[depth]*4+pos[depth]];  // load child pointer
-          if (sbase == threadIdx.x) {
-            // I'm the first thread in the warp
-            pos[depth]++;
-          }
-          __threadfence();  // make sure it's visible
-          if (n >= 0) {
-            dx = posxd[n] - px;
-            dy = posyd[n] - py;
-            tmp = dx*dx + (dy*dy + epssqd);  // compute distance squared (plus softening)
-            if ((n < nbodiesd) || __all(tmp >= dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
-              tmp = rsqrtf(tmp);  // compute distance
-              tmp = massd[n] * tmp * tmp;
-              ax += dx * tmp;
-              ay += dy * tmp;
-            } else {
-              // push cell onto stack
-              depth++;
-              if (sbase == threadIdx.x) {
-                node[depth] = n;
-                pos[depth] = 0;
-              }
-              __threadfence();  // make sure it's visible
-            }
-          } else {
-            depth = max(j, depth - 1);  // early out because all remaining children are also zero
-          }
-        }
-        depth--;  // done with this level
-      }
-
-      // save computed acceleration
-      accxd[i] = ax;
-      // printf("accxd[i] = %f\n", accxd[i]);
-      accyd[i] = ay;
-      // printf("accyd[i] = %f\n", accyd[i]);
-    }
+  float ax, ay;
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += blockDim.x * gridDim.x) {
+    // (target_node = nbodiesd) for signifying root node
+    float2 acceleration = CalculateForceOnLeafNode(i, 0, nbodiesd);
+    leaf_node_accx[i] = acceleration.x;
+    leaf_node_accy[i] = acceleration.y;
   }
 }
 
@@ -575,17 +503,17 @@ void IntegrationKernel()
   inc = blockDim.x * gridDim.x;
   for (i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += inc) {
     // integrate
-    dvelx = accxd[i] * dthfd;
-    dvely = accyd[i] * dthfd;
+    dvelx = leaf_node_accx[i] * dthfd;
+    dvely = leaf_node_accy[i] * dthfd;
 
-    velhx = velxd[i] + dvelx;
-    velhy = velyd[i] + dvely;
+    velhx = leaf_node_velx[i] + dvelx;
+    velhy = leaf_node_vely[i] + dvely;
 
-    posxd[i] += velhx * dtimed;
-    posyd[i] += velhy * dtimed;
+    leaf_node_posx[i] += velhx * dtimed;
+    leaf_node_posy[i] += velhy * dtimed;
 
-    velxd[i] = velhx + dvelx;
-    velyd[i] = velhy + dvely;
+    leaf_node_velx[i] = velhx + dvelx;
+    leaf_node_vely[i] = velhy + dvely;
   }
 }
 
