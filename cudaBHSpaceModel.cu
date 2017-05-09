@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include <cmath>
+//#include <cmath>
 #include "cuda.h"
+#include "cutil_math.h"
 #include "cudaBHSpaceModel.h"
 #include "build_config.h"
 
@@ -34,22 +35,15 @@ __constant__ float dtimed, dthfd, epssqd, itolsqd;
 // leaf node information, transfer from CPU to GPU
 __constant__ volatile float *leaf_node_mass, *leaf_node_posx, *leaf_node_posy, *leaf_node_velx, *leaf_node_vely, *leaf_node_accx, *leaf_node_accy;
 // internal node information, generated in GPU, should be cudaMalloc-ed
-// TODO how do cudaMalloc do initialization
-__device__ volatile int internal_node_num;    // <= nbodiesd
-__constant__ volatile int *internal_node_child;   // 4 x nbodiesd, initialized to -1
-__constant__ volatile int *internal_node_mass;    // nbodiesd
-__constant__ volatile int *internal_node_posx;    // nbodiesd
-__constant__ volatile int *internal_node_posy;    // nbodiesd
-
-// maxdepthd is for accelerating computation, can be ignored
-// __device__ volatile int maxdepthd;
-
-// TODO placed in __constant__
+__device__ volatile int32_t internal_node_num;    // <= nbodiesd
+__constant__ volatile int *internal_node_child;   // 4 x nbodiesd
+__constant__ volatile float *internal_node_mass;    // nbodiesd
+__constant__ volatile float *internal_node_posx;    // nbodiesd
+__constant__ volatile float *internal_node_posy;    // nbodiesd
 __device__ volatile float radiusd;
 
 
 __global__ void InitializationKernel() {
-    printf("initialization kernel\n");
     // the below steps are originally done in another kernel
     radiusd = 700.f;
     int k = 0; // root node placed at first place
@@ -65,195 +59,72 @@ __global__ void InitializationKernel() {
 __global__
 void TreeBuildingKernel()
 {
-  // register int i, j, k, depth, localmaxdepth, skip, inc;
-  // register float x, y, r;
-  // register float px, py;
-  // register int ch, n, cell, locked, patch;
-  // register float radius, rootx, rooty;
-
-  // cache root data
   float radius = radiusd;
-  // nnodesd is the number of 
   float rootx = internal_node_posx[0];
   float rooty = internal_node_posy[0];
-
-  // comments: why need recording depth at all, not necessary, seem not to save computation
-  // localmaxdepth = 1;
-  // skip = 1;
-
-  // After each thread finishes its work at current index, increment each of them by the total number of threads running in the grid, which is blockDim.x*gridDim.x
   int inc = blockDim.x * gridDim.x;
-  // current thread id
   int i = threadIdx.x + blockIdx.x * blockDim.x;
-
-  // iterate over all bodies assigned to thread
-  // comment: a simple comparison of the array index with the number of bodies determines whether the index points to a cell or a body
-  // comment: since i is the unique thread id, if not properly scheduled, many thread resources may be wasted
-  // comment: this one looks strange
   while (i < nbodiesd) {
-    // if (skip != 0) {
-    // comment: do only once when the thread try this body for the first time
-    // comment: when retrying, we don't want to start ahead again
-    // comment: instead, we want to start from where we left off
-    // new body, so start traversing at root
-    // skip = 0;
-
-    // its original coordinate
     int px = leaf_node_posx[i];
     int py = leaf_node_posy[i];
-    // n = nnodesd;
     int n = 0;  // root
-    // comment: the depth 
-    r = radius;
-    // comment: j is the index of children (of a node)
-    j = 0;
-    // determine which child to follow
-    // comment: left up - 2; right up - 3; left down - 0; right down - 1
+    float r = radius;
+    int j = 0;
     if (rootx < px) j = 1;
     if (rooty < py) j += 2;
-    // }
-
-    // follow path to leaf cell
-    // comment: childd is a specialized array for storing the children nodes
-    // comment: since every node can have at most 4 children, we allocate the most space for them
-    // comment: this is for convenience of traversal
-    // comment: ch is the value of that child node, possibly pointing to another node, possibly just -1 (null pointer)
-    // comment: if didin't skip, this should point to children of root node
-    // comment: if did skip, it probably point to something else
-
-    // start with the children of root
     int child = internal_node_child[j];
-    // comment: in some code sections, we need to find out whether an index refers to a body or to null. Because −1 is also smaller than the number of bodies, a single integer comparison suffices to test both conditions.
-    // comment: if ch >= nbodiesd, the child already points to a cell, then go find some place in its children
     while (child >= nbodiesd) {
-      // the - nbodiesd is for differentiating internal node and leaf node
       n = child - nbodiesd;
-      // find it in the next level
       r *= 0.5f;
-      // comment: reset j
       j = 0;
-      // determine which child to follow
       if (internal_node_posx[n] < px) j = 1;
       if (internal_node_posy[n] < py) j += 2;
       child = internal_node_child[n*4+j];
     }
-    // comment: finally found a null pointer (-1 <= nbodiesd) or a body (since the id of bodies is <= nbodiesd)
-    // comment: this two situations are reflected below
 
-    // skip if child pointer is locked and try again later
     if (child != -2) {
-      // comment: if it is not locked, try to lock it
       int locked = n*4+j;
-      // try to lock. However, it is still possible to fail because of contention
-      // comments: if fail, also try again later
       if (child == atomicCAS((int *)&internal_node_child[locked], child, -2)) {
-        // locked, child has the original value
         if (child == -1) { // if it is a null pointer, just insert the new body
           internal_node_child[locked] = i;
         } else {  // there already is a body in this position
-          // there are no more than nbodiesd internal nodes
-          patch = nbodiesd + 1;
-          // create new cell(s) and insert the old and new body
-          // comment: you can't do summarization at the same time as you insert new ones (really?)
-          // comment: because, if you do so, you have traverse backward to the root (still doable?)
-
-          // create new internal node
-
-          // compute the center of this internal node
-
-          // place the old node into the children of this new internal node
-            // computer j
-            // insert
-
-          // computer the child position the new node should be in
-            // see if it collides with the old node
-            // if so, continue newing internal node and repeat the process
-            // if not, insert and end this
+          int patch = 999999999;
           do {
-            // depth++;
-
-            // comment: the new cell is "allocated" from the bottom, according to the thesis
-            // comment: remember that this is not actual allocation. it is like assignment 2/3
-            // comment: cell is the index of the new cell
-
-            // this is not like GPU CAS; it must will succeed
-            // the retry mechanism is hidden from programmers
-            // only return the old value, so we need to + 1
             int internal_node_idx = atomicAdd((int *)&internal_node_num, 1) + 1;
-            // if (cell <= nbodiesd) {
-            //   // comment: cells + bodies should be less than the size of the array
-            //   // comment: if it is more than, they collide and error
-            //   // *errd = 1;
-            //   bottomd = nnodesd;
-            // }
-
-            // comment: why do we need patch? because we need to unlock the uppest level
-            // comment: when the insertion completes
-            // take the value of internal_node_idx only once (in the uppest level)
-            // and that's why we have to internal_node_child[locked] = patch; after insertion
-            
-            // in the original solution, internal_node_idx descend from nnodesd
-            // however, in the modified version, internal_node_idx ascend
-            // so we use min instead of max; and the initial value of patch is changed accordingly
-
             patch = min(patch, internal_node_idx);
 
             int x = (j & 1) * r;
             int y = ((j >> 1) & 1) * r;
             r *= 0.5f;
-
-            // comment: mass will be calculated in the summarization kernel later on?
-            // comment: here we insert the new cell to the end of asd
-            // comment: Initially, all cells have negative masses, indicating that their true masses still need to be computed.
             internal_node_mass[internal_node_idx] = -1.0f;
-            // x and y is the temporary coordinate of the new internal node
-
-            // internal_node_posy[n] is the x position of the parent node of the new internal node
-            // internal_node_posx[n] - r + x; is adjusting the position
             x = internal_node_posx[internal_node_idx] = internal_node_posx[n] - r + x;
             y = internal_node_posy[internal_node_idx] = internal_node_posy[n] - r + y;
-            // comment: first set all children to null pointer
-            for (k = 0; k < 4; k++) 
+            for (int k = 0; k < 4; k++) {
               internal_node_child[internal_node_idx*4+k] = -1;
-
-            // comment: if it is not the uppest level, we can add this immediately
-            // comment: since it doesn't serve as a lock
+            }
             if (patch != internal_node_idx) {
-              // the + nbodiesd is for differentiating leaf nodes and internal nodes
               internal_node_child[n*4+j] = internal_node_idx + nbodiesd;
             }
 
-            // comment: put the old body in place
             j = 0;
             if (x < leaf_node_posx[child]) j = 1;
             if (y < leaf_node_posy[child]) j += 2;
             internal_node_child[internal_node_idx*4+j] = child;
-
-            // comment: the child >= 0 condition is in case the old body and the new body collide in the newly allocated children
             n = internal_node_idx;
             j = 0;
             if (x < px) j = 1;
             if (y < py) j += 2;
             child = internal_node_child[n*4+j];
-            // repeat until the two bodies are different children
           } while (child >= 0);
-          // comment: when old body and new body are no colliding anymore, put the new body in place
           internal_node_child[n*4+j] = i;
           __threadfence();  // push out subtree
-          // the + nbodiesd is for differentiating leaf nodes and internal nodes
           internal_node_child[locked] = patch + nbodiesd;
         }
-
-        // localmaxdepth = max(depth, localmaxdepth);
         i += inc;  // move on to next body
-        // comment: for another body, will have to start all over again
-        // skip = 1;
       }
     }
     __syncthreads();  // throttle
   }
-  // record maximum tree depth
-  // atomicMax((int *)&maxdepthd, localmaxdepth);
 }
 
 
@@ -281,19 +152,24 @@ void SummarizationKernel()
   // comment: notice that actions are conducted on cells
   // iterate over all cells assigned to thread
   while (k >= 0) {
+    int mask = 0;
+    float cm = 0.0f;
+    // comment: the cumulative position x and y
+    float px = 0.0f;
+    float py = 0.0f;
+    float m;
     if (missing == 0) {
       // new cell, so initialize
       // comment: cm is short for cumulative mass
-      float cm = 0.0f;
-      // comment: the cumulative position x and y
-      float px = 0.0f;
-      float py = 0.0f;
+      // float cm = 0.0f;
+      // // comment: the cumulative position x and y
+      // float px = 0.0f;
+      // float py = 0.0f;
       // // comment: cnt is for storing the number of all sub-node of this node
       // cnt = 0;
       // comment: j refers to the number of non-null-pointer children
       // j = 0;
       // comment: traverse its four children
-      int mask = 0;
 
       for (int i = 0; i < 4; i++) {
         int child = internal_node_child[k*4+i];
@@ -372,7 +248,7 @@ void SummarizationKernel()
       //   // repeat until we are done or child is not ready
       // } while ((m >= 0.0f) && (missing != 0));
 
-      for (i = 0; i < 4; i++) {
+      for (int i = 0; i < 4; i++) {
         // poll missing children
         if ((mask & (1 << i)) == 0) {
           // it was not missing
@@ -410,7 +286,7 @@ void SummarizationKernel()
     if (missing == 0) {
       // all children are ready, so store computed information
       // countd[k] = cnt;
-      m = 1.0f / cm;
+      float m = 1.0f / cm;
       internal_node_posx[k] = px * m;
       internal_node_posy[k] = py * m;
       __threadfence();  // make sure data are visible before setting mass
@@ -461,27 +337,29 @@ float2 CalculateForceOnLeafNode(int leaf_node, int depth, int target_node) {
   float dy = internal_node_posy[target_node] - py;
   d = rsqrtf(dx*dx + (dy*dy + epssqd));  // d is the actual distance
 
-  // if s/d < θ (SD_TRESHOLD), see the internal node as an object, calculate the force and return
+  // if s/d < ? (SD_TRESHOLD), see the internal node as an object, calculate the force and return
   if ((s/d) < SD_TRESHOLD) {
     ax += dx * d;
     ay += dy * d;
     return make_float2(ax, ay);
   }
 
-  // if s/d >= θ, do the above recursively on every child of the target_node
+  // if s/d >= ?, do the above recursively on every child of the target_node
   if ((s/d) >= SD_TRESHOLD) {
     return CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4]) + \
     CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 1]) +    \
     CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 2]) +    \
-    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3])
+    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3]);
   }
+
+  printf("something's going wrong in CalculateForceOnLeafNode\n");
+  return make_float2(0.f, 0.f);
 }
 
 __global__
 // __launch_bounds__(THREADS5, FACTOR5)
 void ForceCalculationKernel()
 {
-  float ax, ay;
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += blockDim.x * gridDim.x) {
     // (target_node = nbodiesd) for signifying root node
     float2 acceleration = CalculateForceOnLeafNode(i, 0, nbodiesd);
@@ -527,7 +405,6 @@ cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objec
     }
 }
 
-
 void
 cudaBHSpaceModel::update(GS_FLOAT dt) {
     size_t i;
@@ -535,7 +412,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     dt = CONST_TIME;
 #endif
     int blocks = 15; // number of multiprocessor, specific to K40m
-
+    printf("before getting this->objects.size()\n");
     int nbodies = this->objects.size();
     int nnodes = nbodies * 2;
 
@@ -545,48 +422,14 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
       nnodes++;
     nnodes--;
 
-    float dtime, dthf, epssq, itolsq;
-    dtime = dt;
-    dthf = dtime * 0.5f;
-    // EPSILON; for soothing
-    epssq = 0.05 * 0.05;
-    itolsq = 1.0f / (0.5 * 0.5);
-
+    printf("before allocating leaf node array\n");
+    // for segregate information of objects into different array
+    // on the host
     float *mass = (float *)malloc(sizeof(float) * nbodies);
     float *posx = (float *)malloc(sizeof(float) * nbodies);
     float *posy = (float *)malloc(sizeof(float) * nbodies);
     float *velx = (float *)malloc(sizeof(float) * nbodies);
     float *vely = (float *)malloc(sizeof(float) * nbodies);
-    int *sortl, *childl, *countl, *startl;
-    float *massl;
-    float *posxl, *posyl;
-    float *velxl, *velyl;
-    float *accxl, *accyl;
-    
-    cudaMalloc((void **)&childl, sizeof(int) * (nnodes + 1) * 4);
-    cudaMalloc((void **)&massl, sizeof(float) * (nnodes + 1));
-    cudaMalloc((void **)&posxl, sizeof(float) * (nnodes + 1));
-    cudaMalloc((void **)&posyl, sizeof(float) * (nnodes + 1));
-    cudaMalloc((void **)&countl, sizeof(int) * (nnodes + 1));
-    cudaMalloc((void **)&startl, sizeof(int) * (nnodes + 1));
-    cudaMalloc((void **)&velxl, sizeof(int) * (nnodes + 1));
-    cudaMalloc((void **)&velyl, sizeof(int) * (nnodes + 1));
-    cudaMalloc((void **)&accxl, sizeof(int) * (nnodes + 1));
-    cudaMalloc((void **)&accyl, sizeof(int) * (nnodes + 1));
-    cudaMalloc((void **)&sortl, sizeof(int) * (nnodes + 1));
-
-    // copy the address of the array to constant memory
-    cudaMemcpyToSymbol(nnodesd, &nnodes, sizeof(int));
-    cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int));
-    cudaMemcpyToSymbol(dtimed, &dtime, sizeof(float));
-    cudaMemcpyToSymbol(dthfd, &dthf, sizeof(float));
-    cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
-    cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
-    cudaMemcpyToSymbol(sortd, &sortl, sizeof(void *));
-    cudaMemcpyToSymbol(countd, &countl, sizeof(void *));
-    cudaMemcpyToSymbol(startd, &startl, sizeof(void *));
-    cudaMemcpyToSymbol(childd, &childl, sizeof(void *));
-
     for (i = 0; i < nbodies; i++) {
         posx[i] = this->objects[i].position.x;
         posy[i] = this->objects[i].position.y;
@@ -595,46 +438,89 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
         mass[i] = this->objects[i].mass;
     }
 
+    // on the device
+    float *massl, *posxl, *posyl, *velxl, *velyl;
+    cudaMalloc((void **)&massl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void **)&posxl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void **)&posyl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void **)&velxl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void **)&velyl, sizeof(float) * (nbodies + 1));
+
+    // copy from host to device
     cudaMemcpy(massl, mass, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(posxl, posx, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(posyl, posy, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(velxl, velx, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
     cudaMemcpy(velyl, vely, sizeof(float) * nbodies, cudaMemcpyHostToDevice);
 
-    cudaMemcpyToSymbol(massd, &massl, sizeof(void *));
-    cudaMemcpyToSymbol(posxd, &posxl, sizeof(void *));
-    cudaMemcpyToSymbol(posyd, &posyl, sizeof(void *));
-    cudaMemcpyToSymbol(velxd, &velxl, sizeof(void *));
-    cudaMemcpyToSymbol(velyd, &velyl, sizeof(void *));
-    cudaMemcpyToSymbol(accxd, &accxl, sizeof(void *));
-    cudaMemcpyToSymbol(accyd, &accyl, sizeof(void *));
+    // copy from __device__ to __constant__ for acceleration
+    cudaMemcpyToSymbol(leaf_node_mass, &massl, sizeof(void *));
+    cudaMemcpyToSymbol(leaf_node_posx, &posxl, sizeof(void *));
+    cudaMemcpyToSymbol(leaf_node_posy, &posyl, sizeof(void *));
+    cudaMemcpyToSymbol(leaf_node_velx, &velxl, sizeof(void *));
+    cudaMemcpyToSymbol(leaf_node_vely, &velyl, sizeof(void *));
+
+    // allocate leaf node acceleration information
+    float *leaf_node_accxl, *leaf_node_accyl;
+    cudaMalloc((void **)&leaf_node_accxl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void **)&leaf_node_accyl, sizeof(float) * (nbodies + 1));
+
+    // copy to constant memory
+    cudaMemcpyToSymbol(leaf_node_accx, &leaf_node_accxl, sizeof(void *));
+    cudaMemcpyToSymbol(leaf_node_accy, &leaf_node_accyl, sizeof(void *));
+
+    printf("before allocate space for internal nodes\n");
+    // allocate space for internal nodes
+    // on the device
+    int *internal_node_childl;
+    float *internal_node_massl, *internal_node_posxl, *internal_node_posyl; 
+    cudaMalloc((void**)&internal_node_childl, sizeof(int) * (nbodies + 1) * 8);
+    cudaMalloc((void**)&internal_node_massl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void**)&internal_node_posxl, sizeof(float) * (nbodies + 1));
+    cudaMalloc((void**)&internal_node_posyl, sizeof(float) * (nbodies + 1));
+
+    // copy to constant memory
+    cudaMemcpyToSymbol(internal_node_child, &internal_node_childl, sizeof(void *));
+    cudaMemcpyToSymbol(internal_node_mass, &internal_node_massl, sizeof(void *));
+    cudaMemcpyToSymbol(internal_node_posx, &internal_node_posxl, sizeof(void *));
+    cudaMemcpyToSymbol(internal_node_posy, &internal_node_posyl, sizeof(void *));
+
+    // calculation factors
+    float dtime, dthf, epssq, itolsq;
+    dtime = dt;
+    dthf = dtime * 0.5f;
+    epssq = 0.05 * 0.05;  // EPSILON; for soothing
+    itolsq = 1.0f / (0.5 * 0.5);
+
+    printf("before copy the address of the array to constant memory\n");
+    // copy the address of the array to constant memory
+    cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int));
+    cudaMemcpyToSymbol(dtimed, &dtime, sizeof(float));
+    cudaMemcpyToSymbol(dthfd, &dthf, sizeof(float));
+    cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
+    cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
 
     InitializationKernel <<< 1, 1>>>();
-    TreeBuildingKernel <<< blocks *FACTOR2, THREADS2>>>();
+    TreeBuildingKernel <<< 1, 1>>>();
     SummarizationKernel <<< blocks *FACTOR3, THREADS3>>>();
-    SortKernel <<< blocks *FACTOR4, THREADS4>>>();
     ForceCalculationKernel <<< blocks *FACTOR5, THREADS5>>>();
     IntegrationKernel <<< blocks *FACTOR6, THREADS6>>>();
 
+    // we only need to copy these four back into host
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(posy, posyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(velx, velxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
     cudaMemcpy(vely, velyl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
 
-    // update posx, posy, velx, vely to this->objects array
+    // update leaf_node_posx, leaf_node_posy, leaf_node_velx, leaf_node_vely to objects array
     for (i = 0; i < nbodies; i++) {
         this->objects[i].position.x = posx[i];
         this->objects[i].position.y = posy[i];
         this->objects[i].speed.x = velx[i];
         this->objects[i].speed.y = vely[i];
-        this->objects[i].mass = mass[i];
     }
 
     remove_objects_outside_bounds();
-
-    // delete this->tree;
-    // this->tree = new QuadTree(this->bounds);
-    // this->tree->add_objects(this->objects);
 
     free(mass);
     free(posx);
@@ -642,19 +528,20 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     free(velx);
     free(vely);
 
-    cudaFree(childl);
     cudaFree(massl);
     cudaFree(posxl);
     cudaFree(posyl);
-    cudaFree(countl);
-    cudaFree(startl);
     cudaFree(velxl);
     cudaFree(velyl);
-    cudaFree(accxl);
-    cudaFree(accyl);
-    cudaFree(sortl);
+    cudaFree(leaf_node_accxl);
+    cudaFree(leaf_node_accyl);
+    cudaFree(internal_node_childl);
+    cudaFree(internal_node_massl);
+    cudaFree(internal_node_posxl);
+    cudaFree(internal_node_posyl);
 }
 
 cudaBHSpaceModel::~cudaBHSpaceModel() {
     delete this->tree;
 }
+
