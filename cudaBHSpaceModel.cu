@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <iostream>
 #include <cmath>
 #include "cuda.h"
 #include "cutil_math.h"
@@ -11,17 +12,15 @@
 
 //#define printf(...) 
 
-// thread count for a block
 #define THREADS2 1024
 #define THREADS3 1024
 #define THREADS4 256
 #define THREADS5 256
 #define THREADS6 512
 
-// block count = factor * #SMs
 #define FACTOR2 1
-#define FACTOR3 1  /* must all be resident at the same time */
-#define FACTOR4 1  /* must all be resident at the same time */
+#define FACTOR3 1  
+#define FACTOR4 1  
 #define FACTOR5 5
 #define FACTOR6 3
 
@@ -30,9 +29,10 @@ __constant__ int nbodiesd;
 // dtimed -> update interval
 __constant__ float dtimed, dthfd, epssqd, itolsqd;
 // leaf node information, transfer from CPU to GPU
-__constant__ volatile float *leaf_node_mass, *leaf_node_posx, *leaf_node_posy, *leaf_node_velx, *leaf_node_vely, *leaf_node_accx, *leaf_node_accy;
+__constant__ volatile float *leaf_node_mass, *leaf_node_posx, *leaf_node_posy;
+__constant__ volatile float *leaf_node_velx, *leaf_node_vely, *leaf_node_accx, *leaf_node_accy;
 // internal node information, generated in GPU, should be cudaMalloc-ed
-__device__ volatile int32_t internal_node_num;    // <= nbodiesd
+__device__ volatile int internal_node_num;    // <= nbodiesd
 __constant__ volatile int *internal_node_child;   // 4 x nbodiesd
 __constant__ volatile float *internal_node_mass;    // nbodiesd
 __constant__ volatile float *internal_node_posx;    // nbodiesd
@@ -129,14 +129,14 @@ void TreeBuildingKernel()
 __global__
 void SummarizationKernel()
 {
-  int last_internal_node = internal_node_num;
+  int last_internal_node = internal_node_num; 
   int inc = blockDim.x * gridDim.x;
-
+  __shared__ volatile int cache[THREADS3 * 4];
+  
+  // bottom-up
   int k = last_internal_node - (threadIdx.x + blockIdx.x * blockDim.x);
   int missing = 0;
   while (k >= 0) {
-    printf("this is thread %d\n", k);
-    int mask = 0;
     float cm = 0.0f;
     float px = 0.0f;
     float py = 0.0f;
@@ -147,6 +147,7 @@ void SummarizationKernel()
         int child = internal_node_child[k*4+i];
         // comment: if this child is not null pointer (may be internal or leaf)
         if (child >= 0) {
+	  cache[missing*THREADS3+threadIdx.x] = child;
 	  float m = 0.f;
           if (child >= nbodiesd) {
             // it is a internal node
@@ -168,126 +169,82 @@ void SummarizationKernel()
               px += leaf_node_posx[child] * m;
               py += leaf_node_posy[child] * m;
             }
-          } else {
-            mask |= (1 << i);
           }
         }
       }
     }
 
     if (missing != 0) {
-        for (int i = 0; i < 4; i++) {
+        do {
         // poll missing children
-        if ((mask & (1 << i)) == 0) {
-          // it was not missing
-          continue;
-        }
-
-        int child = internal_node_child[k*4+i];
-        if (child < 0) {
-          // when this children is null pointer, skip it
-          continue;
-        } else {
-          // if it is leaf node, ignore it because it was computed already
-          if (child >= nbodiesd) {
-            // solve the children one by one
-            while (1) {
-	      printf("I can't get out\n");
-              // it is an internal node
-              m = internal_node_mass[child - nbodiesd];
-              if (m < 0.0f) {
-                // if the internal node is not ready; keep retrying
-                printf("waiting for it\n");
-		continue;
-              } else {
-                // the internal is ready
-                missing--;
-                cm += m;
-                px += internal_node_posx[child - nbodiesd] * m;
-                py += internal_node_posy[child - nbodiesd] * m;
-                break;
-              }
-            }
-          }
-        }
-      }
+        int child = cache[(missing-1)*THREADS3+threadIdx.x];
+	m = internal_node_mass[child - nbodiesd];
+	if (m >= 0.f) {
+	  missing--;
+	  cm += m;
+	  px += internal_node_posx[child - nbodiesd] * m;
+	  py += internal_node_posy[child - nbodiesd] * m;
+	}
+      } while ((m >= 0.f) && (missing !=0));
     }
-
-    printf("missing = %d\n", missing);
 
     if (missing == 0) {
       // all children are ready, so store computed information
-      // countd[k] = cnt;
       float m = 1.0f / cm;
       internal_node_posx[k] = px * m;
       internal_node_posy[k] = py * m;
       __threadfence();  // make sure data are visible before setting mass
       internal_node_mass[k] = cm;
       k -= inc;  // move on to next cell
-    } else {
-      printf("it should be missing = 0, dude!\n");
     }
-    __syncthreads();
   }
 }
 
-
+// problem with recursive implementation: 
 __device__
 float2 CalculateForceOnLeafNode(int leaf_node, int depth, int target_node) {
   // notice: float2 overloads + (part of cuda runtime)
   // depth is for calculating region size (radiusd / (2^depth)); the depth of root is 0
   // target_node is the index in internel_node_child
 
-  // when target_node < 0, this is a null children
-  if (target_node < 0) {
-    // it is null children
-    return make_float2(0.f, 0.f);
-  }
-
+  float s = radiusd / (1 << depth);
+  float dx, dy;
+  float px = leaf_node_posx[leaf_node];
+  float py = leaf_node_posy[leaf_node];
   float ax = 0.f, ay = 0.f;
   // if the target_node is a leaf node, simply calculate the force and return
   if (target_node >= 0 && target_node < nbodiesd) {
-    float px = leaf_node_posx[leaf_node];
-    float py = leaf_node_posy[leaf_node];
+    dx = leaf_node_posx[target_node] - px;
+    dy = leaf_node_posy[target_node] - py;
+  } else {
+    dx = internal_node_posx[target_node - nbodiesd] - px;
+    dy = internal_node_posy[target_node - nbodiesd] - py;
+  }
 
-    float dx = leaf_node_posx[target_node] - px;
-    float dy = leaf_node_posy[target_node] - py;
-
-    float distance = dx*dx + dy*dy + epssqd;
-    distance = rsqrtf(distance);
+  float distance = dx*dx + dy*dy + epssqd;
+  distance = rsqrtf(distance);
+  if (target_node >= 0 && target_node < nbodiesd) {
     distance = leaf_node_mass[target_node] * distance * distance;
-    ax += dx * distance;
-    ay += dy * distance;
-    return make_float2(ax, ay);
+  } else {
+    target_node -= nbodiesd;   // conversion
+    distance = internal_node_mass[target_node] * distance * distance;
   }
 
   // otherwise, calculate s/d, where s is the size of the region (of the target_node) 
-  // and d is the actual distance
-  target_node -= nbodiesd;   // conversion
-  float s = radiusd / std::pow(2, depth);
-  float distance = 0.f;
-  float px = leaf_node_posx[leaf_node];
-  float py = leaf_node_posy[leaf_node];
-  float dx = internal_node_posx[target_node] - px;
-  float dy = internal_node_posy[target_node] - py;
-  distance = dx*dx + dy*dy + epssqd;  // d is the actual distance
-  distance = rsqrtf(distance);
-  distance = internal_node_mass[target_node] * distance * distance;
-
   // if s/d < ? (SD_TRESHOLD), see the internal node as an object, calculate the force and return
   if ((s/distance) < SD_TRESHOLD) {
     ax += dx * distance;
     ay += dy * distance;
     return make_float2(ax, ay);
   } else {
+    float2 zero = make_float2(0.f, 0.f);
     // if s/d >= ?, do the above recursively on every child of the target_node
-    return CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4]) + \
-    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 1]) +    \
-    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 2]) +    \
-    CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3]);
+    return (internal_node_child[target_node*4] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4])) + \
+    (internal_node_child[target_node*4 + 1] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 1])) +    \
+    (internal_node_child[target_node*4 + 2] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 2])) +    \
+    (internal_node_child[target_node*4 + 3] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3]));
   }
 
-  printf("you shouldn't be here\n");
   return make_float2(0.f, 0.f);
 }
 
@@ -340,6 +297,31 @@ cudaBHSpaceModel::cudaBHSpaceModel(RectangleD bounds, std::vector<Object> &objec
     }
 }
 
+void checkLimit() {
+  size_t limit = 0;
+  //cudaDeviceGetLimit(&limit, cudaLimitStackSize);
+  //printf("cudaLimitStackSize: %u\n", (unsigned)limit);
+  //cudaDeviceGetLimit(&limit, cudaLimitPrintfFifoSize);
+  //printf("cudaLimitPrintfFifoSize: %u\n", (unsigned)limit);
+  //cudaDeviceGetLimit(&limit, cudaLimitMallocHeapSize);
+  //printf("cudaLimitMallocHeapSize: %u\n", (unsigned)limit);
+
+  limit = 99999;
+
+  cudaDeviceSetLimit(cudaLimitStackSize, limit);
+  //cudaDeviceSetLimit(cudaLimitPrintfFifoSize, limit);
+  //cudaDeviceSetLimit(cudaLimitMallocHeapSize, limit);
+
+  limit = 0;
+
+  cudaDeviceGetLimit(&limit, cudaLimitStackSize);
+  printf("New cudaLimitStackSize: %u\n", (unsigned)limit);
+  //cudaDeviceGetLimit(&limit, cudaLimitPrintfFifoSize);
+  //printf("New cudaLimitPrintfFifoSize: %u\n", (unsigned)limit);
+  //cudaDeviceGetLimit(&limit, cudaLimitMallocHeapSize);
+  //printf("New cudaLimitMallocHeapSize: %u\n", (unsigned)limit);
+}
+
 void
 cudaBHSpaceModel::update(GS_FLOAT dt) {
     size_t i;
@@ -348,6 +330,8 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
 #endif
     int blocks = 15; // number of multiprocessor, specific to K40m
     int nbodies = this->objects.size();
+
+    checkLimit();
 
     // for segregate information of objects into different array
     // on the host
@@ -395,7 +379,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(leaf_node_accx, &leaf_node_accxl, sizeof(void *));
     cudaMemcpyToSymbol(leaf_node_accy, &leaf_node_accyl, sizeof(void *));
 
-    printf("before allocate space for internal nodes\n");
     // allocate space for internal nodes
     // on the device
     int *internal_node_childl;
@@ -418,7 +401,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     epssq = 0.05 * 0.05;  // EPSILON; for soothing
     itolsq = 1.0f / (0.5 * 0.5);
 
-    printf("before copy the address of the array to constant memory\n");
     // copy the address of the array to constant memory
     cudaMemcpyToSymbol(nbodiesd, &nbodies, sizeof(int));
     cudaMemcpyToSymbol(dtimed, &dtime, sizeof(float));
@@ -426,17 +408,12 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
     cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
 
-    printf("before InitializationKernel\n");
     InitializationKernel <<< 1, 1>>>();
-    printf("before TreeBuildingKernel\n");
     TreeBuildingKernel <<< blocks * FACTOR3, THREADS3>>>();
-    printf("before SummarizationKernel\n");
-    SummarizationKernel <<< 1, THREADS4>>>();
+    SummarizationKernel <<< blocks * FACTOR4, THREADS4>>>();
     printf("before ForceCalculationKernel\n");
     ForceCalculationKernel <<< blocks * FACTOR5, THREADS5>>>();
-    printf("before IntegrationKernel\n");
     IntegrationKernel <<< blocks * FACTOR6, THREADS6>>>();
-    printf("after IntegrationKernel\n");
 
     // we only need to copy these four back into host
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
