@@ -9,7 +9,7 @@
 #define NULL_BODY (-1)
 #define LOCK (-2)
 
-#define printf(...) 
+//#define printf(...) 
 
 // thread count for a block
 #define THREADS2 1024
@@ -40,7 +40,8 @@ __constant__ volatile float *internal_node_posy;    // nbodiesd
 __device__ volatile float radiusd;
 
 
-__global__ void InitializationKernel() {
+__global__
+void InitializationKernel() {
     // the below steps are originally done in another kernel
     radiusd = 700.f;
     int k = 0; // root node placed at first place
@@ -66,7 +67,6 @@ void TreeBuildingKernel()
     float py = leaf_node_posy[i];
     int n = 0;  // root
     float r = radius;
-    int depth = 1;
     int j = 0;
     if (rootx < px) j = 1;
     if (rooty < py) j += 2;
@@ -75,7 +75,6 @@ void TreeBuildingKernel()
       n = child - nbodiesd;
       r *= 0.5f;
       j = 0;
-      depth++;
       if (internal_node_posx[n] < px) j = 1;
       if (internal_node_posy[n] < py) j += 2;
       child = internal_node_child[n*4+j];
@@ -89,7 +88,6 @@ void TreeBuildingKernel()
         } else {  // there already is a body in this position
           int patch = 999999999;
           do {
-	    depth++;
             int internal_node_idx = atomicAdd((int *)&internal_node_num, 1) + 1;
             patch = min(patch, internal_node_idx);
 
@@ -137,11 +135,13 @@ void SummarizationKernel()
   int k = last_internal_node - (threadIdx.x + blockIdx.x * blockDim.x);
   int missing = 0;
   while (k >= 0) {
+    printf("this is thread %d\n", k);
     int mask = 0;
     float cm = 0.0f;
     float px = 0.0f;
     float py = 0.0f;
     float m;
+
     if (missing == 0) {
       for (int i = 0; i < 4; i++) {
         int child = internal_node_child[k*4+i];
@@ -174,6 +174,7 @@ void SummarizationKernel()
         }
       }
     }
+
     if (missing != 0) {
         for (int i = 0; i < 4; i++) {
         // poll missing children
@@ -191,11 +192,13 @@ void SummarizationKernel()
           if (child >= nbodiesd) {
             // solve the children one by one
             while (1) {
+	      printf("I can't get out\n");
               // it is an internal node
-              m = internal_node_mass[child];
+              m = internal_node_mass[child - nbodiesd];
               if (m < 0.0f) {
                 // if the internal node is not ready; keep retrying
-                continue;
+                printf("waiting for it\n");
+		continue;
               } else {
                 // the internal is ready
                 missing--;
@@ -210,6 +213,8 @@ void SummarizationKernel()
       }
     }
 
+    printf("missing = %d\n", missing);
+
     if (missing == 0) {
       // all children are ready, so store computed information
       // countd[k] = cnt;
@@ -219,7 +224,10 @@ void SummarizationKernel()
       __threadfence();  // make sure data are visible before setting mass
       internal_node_mass[k] = cm;
       k -= inc;  // move on to next cell
+    } else {
+      printf("it should be missing = 0, dude!\n");
     }
+    __syncthreads();
   }
 }
 
@@ -271,22 +279,19 @@ float2 CalculateForceOnLeafNode(int leaf_node, int depth, int target_node) {
     ax += dx * distance;
     ay += dy * distance;
     return make_float2(ax, ay);
-  }
-
-  // if s/d >= ?, do the above recursively on every child of the target_node
-  if ((s/distance) >= SD_TRESHOLD) {
+  } else {
+    // if s/d >= ?, do the above recursively on every child of the target_node
     return CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4]) + \
     CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 1]) +    \
     CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 2]) +    \
     CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3]);
   }
 
-  printf("something's going wrong in CalculateForceOnLeafNode\n");
+  printf("you shouldn't be here\n");
   return make_float2(0.f, 0.f);
 }
 
 __global__
-// __launch_bounds__(THREADS5, FACTOR5)
 void ForceCalculationKernel()
 {
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += blockDim.x * gridDim.x) {
@@ -301,7 +306,6 @@ void ForceCalculationKernel()
 
 
 __global__
-__launch_bounds__(THREADS6, FACTOR6)
 void IntegrationKernel()
 {
   register int i, inc;
@@ -422,11 +426,17 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
     cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
 
+    printf("before InitializationKernel\n");
     InitializationKernel <<< 1, 1>>>();
+    printf("before TreeBuildingKernel\n");
     TreeBuildingKernel <<< blocks * FACTOR3, THREADS3>>>();
-    SummarizationKernel <<< blocks * FACTOR4, THREADS4>>>();
+    printf("before SummarizationKernel\n");
+    SummarizationKernel <<< 1, THREADS4>>>();
+    printf("before ForceCalculationKernel\n");
     ForceCalculationKernel <<< blocks * FACTOR5, THREADS5>>>();
+    printf("before IntegrationKernel\n");
     IntegrationKernel <<< blocks * FACTOR6, THREADS6>>>();
+    printf("after IntegrationKernel\n");
 
     // we only need to copy these four back into host
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
