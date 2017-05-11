@@ -72,38 +72,54 @@
                     <thead>
                     <tr bgcolor="#f0f0f0">
                         <th>#</th>
-                        <th>Algorithm Version</th>
-                        <th>Total Time (ms)</th>
-                        <th>Time Per Iteration (ms/iter)</th>
+                        <th>Loop Times</th>
+                        <th>Number of Galaxy</th>
+                        <th>Objects per Galaxy</th>
+                        <th>Galaxy size</th>
+                        <th>seq Barnus-Hut</th>
+                        <th>cuda Barnus-Hut</th>
+                        <th>seq Morton-Code</th>
+                        <th>cuda Morton-Code</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr>
                         <td>1</td>
-                        <td nowrap="nowrap">seq Barnus-Hut</td>
-                        <td>36280.33</td>
-                        <td>90.70</td>
+                        <td>400</td>
+                        <td>2</td>
+                        <td>1000</td>
+                        <td>100</td>
+                        <td nowrap="nowrap">36280.33 / 90.70</td>
+                        <td>TBD / TBD</td>
+                        <td>64027.15 / 160.07</td>
+                        <td>4779.26 / 11.95</td>
                     </tr>
                     <tr bgcolor="#f0f0f0">
                         <td>2</td>
-                        <td nowrap="nowrap">cuda Barnus-Hut</td>
-                        <td>TBD</td>
-                        <td>TBD</td>
-                    </tr>
-                    <tr>
-                        <td>3</td>
-                        <td nowrap="nowrap">seq Morton-Code</td>
-                        <td>64027.15</td>
-                        <td>160.07</td>
-                    </tr>
-                    <tr bgcolor="#f0f0f0">
+                        <td>1000</td>
                         <td>4</td>
-                        <td nowrap="nowrap">cuda Morton-Code</td>
-                        <td>4779.26</td>
-                        <td>11.95</td>
+                        <td>1000</td>
+                        <td>100</td>
+                        <td nowrap="nowrap">158524.25 / 158.52</td>
+                        <td>TBD / TBD</td>
+                        <td>292302.57 / 292.30</td>
+                        <td>21997.26 / 22.00 </td>
                     </tr>
+                    <!--<tr>-->
+                        <!--<td>3</td>-->
+                        <!--<td nowrap="nowrap">seq Morton-Code</td>-->
+                        <!--<td>64027.15</td>-->
+                        <!--<td>160.07</td>-->
+                    <!--</tr>-->
+                    <!--<tr bgcolor="#f0f0f0">-->
+                        <!--<td>4</td>-->
+                        <!--<td nowrap="nowrap">cuda Morton-Code</td>-->
+                        <!--<td>4779.26</td>-->
+                        <!--<td>11.95</td>-->
+                    <!--</tr>-->
                     </tbody>
                 </table>
+                 <font size="3"> <i> The content shows Total Time (ms) / Time Per Iteration (ms/iter)</i></font>
                 </p>
             </ul>
             <strong>Table 1. Performance comparison table</strong>
