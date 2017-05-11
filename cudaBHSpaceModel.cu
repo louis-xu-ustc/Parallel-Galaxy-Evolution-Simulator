@@ -202,51 +202,79 @@ void SummarizationKernel()
 
 // The most obvious problem with our recursive implementation is high execution divergence
 __device__
-float2 CalculateForceOnLeafNode(int leaf_node, int depth, int target_node) {
+float2 CalculateForceOnLeafNode(int leaf_node) {
   // notice: float2 overloads + (part of cuda runtime)
   // depth is for calculating region size (radiusd / (2^depth)); the depth of root is 0
   // target_node is the index in internel_node_child
-  volatile float *x_array, *y_array, *mass_array;
-  if (target_node >= 0 && target_node < nbodiesd) {
-    x_array = leaf_node_posx;
-    y_array = leaf_node_posy;
-    mass_array = leaf_node_mass;
-  } else {
-    target_node -= nbodiesd;
-    x_array = internal_node_posx;
-    y_array = internal_node_posy;
-    mass_array = internal_node_mass;
-  }
-  
-  float s = radiusd / (1 << depth);
-  float dx, dy;
-  float px = leaf_node_posx[leaf_node];
-  float py = leaf_node_posy[leaf_node];
+
+  // initialize a stack and push_back root
+  // there is no null pointer in the stack (check before push_back)
+  int stack[1024];   // store the index of internal nodes and leaf nodes
+  int stack_idx = -1;
+  // push_back
+  stack[++stack_idx] = 0;  // depth; for calculating s
+  stack[++stack_idx] = nbodiesd;
+
+  // while (1) {
+  // 	if stack is not empty
+  //		fetch one element
+  //		check if (s/d < SD_TRESHOLD):
+  //			yes -> add to ax and ay
+  //			no -> push its four children onto stack
+  // }
+
+  int node_idx = 0;;
+  int depth = 0;
+  float s = 0.f;
+  float distance = 0.f;
+  float dx = 0.f, dy = 0.f;
+  float px = 0.f, py = 0.f;
   float ax = 0.f, ay = 0.f;
-  // if the target_node is a leaf node, simply calculate the force and return
-  dx = x_array[target_node] - px;
-  dy = y_array[target_node] - py;
+  volatile float *x_array, *y_array, *mass_array;
+  while (stack_idx >= 0) {
+    // pop
+    node_idx = stack[stack_idx--];
+    depth = stack[stack_idx--];
+    bool isleaf = false;
+    
+    if (node_idx >= 0 && node_idx < nbodiesd) {
+		x_array = leaf_node_posx;
+		y_array = leaf_node_posy;
+		mass_array = leaf_node_mass;
+		isleaf = true;
+	} else {
+		node_idx -= nbodiesd;
+		x_array = internal_node_posx;
+		y_array = internal_node_posy;
+		mass_array = internal_node_mass;
+	}
 
-  float distance = dx*dx + dy*dy + epssqd;
-  distance = rsqrtf(distance);
-  distance = mass_array[target_node] * distance * distance;
+  	s = radiusd / (1 << depth);
+	px = leaf_node_posx[leaf_node];
+	py = leaf_node_posy[leaf_node];
+	// if the target_node is a leaf node, simply calculate the force and return
+	dx = x_array[node_idx] - px;
+	dy = y_array[node_idx] - py;
 
-  // otherwise, calculate s/d, where s is the size of the region (of the target_node) 
-  // if s/d < ? (SD_TRESHOLD), see the internal node as an object, calculate the force and return
-  if ((s/distance) < SD_TRESHOLD) {
-    ax += dx * distance;
-    ay += dy * distance;
-    return make_float2(ax, ay);
-  } else {
-    float2 zero = make_float2(0.f, 0.f);
-    // if s/d >= ?, do the above recursively on every child of the target_node
-    return (internal_node_child[target_node*4] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4])) + \
-    (internal_node_child[target_node*4 + 1] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 1])) +    \
-    (internal_node_child[target_node*4 + 2] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 2])) +    \
-    (internal_node_child[target_node*4 + 3] < 0? zero: CalculateForceOnLeafNode(leaf_node, depth+1, internal_node_child[target_node*4 + 3]));
+	distance = dx*dx + dy*dy + epssqd;
+	distance = rsqrtf(distance);
+	distance = mass_array[node_idx] * distance * distance;
+
+	if (((s/distance) < SD_TRESHOLD) || isleaf) {
+	  //add to ax and ay
+	  ax += dx * distance;
+	  ay += dy * distance;
+	} else {
+	  for (int k = 0; k < 4; k++) {
+	    if (internal_node_child[4*node_idx+k] != NULL_BODY) {
+	      stack[++stack_idx] = depth + 1;   // push_back depth first
+	      stack[++stack_idx] = internal_node_child[4*node_idx+k];
+	    }
+	  }
+	}
   }
-
-  return make_float2(0.f, 0.f);
+  __syncthreads();
+  return make_float2(ax, ay);
 }
 
 __global__
@@ -254,7 +282,7 @@ void ForceCalculationKernel()
 {
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += blockDim.x * gridDim.x) {
     // (target_node = nbodiesd) for signifying root node
-    float2 acceleration = CalculateForceOnLeafNode(i, 0, nbodiesd);
+    float2 acceleration = CalculateForceOnLeafNode(i);
     float acccx = acceleration.x;
     float acccy = acceleration.y;
     leaf_node_accx[i] = acccx;
@@ -332,7 +360,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     int blocks = 15; // number of multiprocessor, specific to K40m
     int nbodies = this->objects.size();
 
-    checkLimit();
+    // checkLimit();
 
     // for segregate information of objects into different array
     // on the host
@@ -412,7 +440,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     InitializationKernel <<< 1, 1>>>();
     TreeBuildingKernel <<< blocks * FACTOR3, THREADS3>>>();
     SummarizationKernel <<< blocks * FACTOR4, THREADS4>>>();
-    printf("before ForceCalculationKernel\n");
     ForceCalculationKernel <<< blocks * FACTOR5, THREADS5>>>();
     IntegrationKernel <<< blocks * FACTOR6, THREADS6>>>();
 
