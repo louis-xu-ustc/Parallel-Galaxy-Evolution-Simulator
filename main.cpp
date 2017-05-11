@@ -17,7 +17,7 @@
 #define SUCCESS 0
 #define FAILURE 1
 
-//#define ENABLE_SEQ_BARNES
+#define ENABLE_SEQ_BARNES
 #define ENABLE_SEQ_MORTON
 //#define ENABLE_CUDA_BARNES
 #define ENABLE_CUDA_MORTON

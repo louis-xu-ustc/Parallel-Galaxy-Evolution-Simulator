@@ -6,7 +6,6 @@
 
 #define UPDIV(x, align)     (((x) + (align) - 1) / (align))
 //#define CORRECTNESS_CHECK
-//#define ASSERTATION
 
 struct GlobalConstants {
     GS_FLOAT *posx, *posy, *spdx, *spdy, *mass;
@@ -65,7 +64,7 @@ applyToObjectsKernel(GS_FLOAT dt, int numObjs) {
     GS_FLOAT *devCellBndY = cudaConstMortonParams.cellBndY;
     GS_FLOAT *devCellMass = cudaConstMortonParams.cellMass;
     int *devCellCnt = cudaConstMortonParams.cellCnt;
-   
+
     register float2 tarObjPos = make_float2(devPosX[tarIdx], devPosY[tarIdx]), result = float2_zero();
     register float2 acc, dv, dr;
     register GS_FLOAT s, d;
@@ -144,7 +143,6 @@ cudaMortonSpaceModel::cudaMortonSpaceModel(RectangleD bouds, std::vector<Object>
 
 cudaMortonSpaceModel::~cudaMortonSpaceModel() {
     delete this->tree;
-    dealloc();
 }
 
 void
@@ -155,26 +153,20 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
     ENTER();
 
     int numCells = this->tree->getCells().size();
-    if (firstUpdated) {
-        alloc(numObjects, numCells);
-        firstUpdated = false;
-    }
+    alloc(numObjects, numCells);
 
     struct timespec one, two, three, four;
     clock_gettime(CLOCK_REALTIME, &one);
-    
+
     // getObjects from the tree and then fill in buffers for CUDA
     std::vector<MortonTreeObject*> objs = this->tree->getObjects();
-#ifdef ASSERTATION
-    assert(objs.size() == numObjects);
-#endif
     fillObjectsToCuda(objs);
     std::vector<MortonCell*> cells = this->tree->getCells();
     fillCells(cells);
     clock_gettime(CLOCK_REALTIME, &two);
 
 #if 1
-    int threads = 128;
+    int threads = 512;
     int blocks = UPDIV(numObjects, threads);
     applyToObjectsKernel<<<blocks, threads>>>(dt, numObjects);
     cudaDeviceSynchronize();
@@ -186,12 +178,8 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
     //printf("Sync: %s\n", cudaGetErrorString(cudaThreadSynchronize()));
 
     // get the updated positions and fill in this->objects
-#ifdef ASSERTATION
-    DBG("size1: %d, size2: %d\n", this->objects.size(), numObjects);
-    assert(this->objects.size() == numObjects);
-#endif
-   
     fillObjectsFromCuda(this->objects);
+    dealloc();
 #else
     this->tree->applyToObjects(dt);
     this->objects.clear();
@@ -210,12 +198,11 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
         GS_FLOAT seq_y = comp_objs[i]->position.y;
         GS_FLOAT cuda_x = this->objects[i].position.x;
         GS_FLOAT cuda_y = this->objects[i].position.y;
-#if 0
-        printf("x - comp: %f, my: %f\n", seq_x, cuda_x);
-        assert(seq_x == cuda_x);
-        printf("y - comp: %f, my: %f\n", seq_y, cuda_y);
-        assert(seq_y == cuda_y);
-#else
+
+        //printf("x - comp: %f, my: %f\n", seq_x, cuda_x);
+        //assert(seq_x == cuda_x);
+        //printf("y - comp: %f, my: %f\n", seq_y, cuda_y);
+        //assert(seq_y == cuda_y);
         if ((seq_x - cuda_x)/seq_x > 0.001 || (seq_y - cuda_y)/seq_y > 0.001) {
             printf("x - comp: %f, my: %f\n", seq_x, cuda_x);
             printf("y - comp: %f, my: %f\n", seq_y, cuda_y);
@@ -224,10 +211,8 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
         if (errCnt > 10) {
             printf("galaxy render error!\n");
         }
-#endif
     }
 #endif
-
     clock_gettime(CLOCK_REALTIME, &three);
 
     remove_objects_outside_bounds();
@@ -293,7 +278,7 @@ cudaMortonSpaceModel::alloc(int numObjects, int numCells) {
     cudaMalloc((void **)&this->devCellCnt, sizeof(int)*numCells);
 
     this->inited = true;
-    
+
     GlobalConstants params;
     params.posx = devPosX;
     params.posy = devPosY;
@@ -405,92 +390,18 @@ cudaMortonSpaceModel::fillObjectsFromCuda(std::vector<Object> &objects) {
     cudaMemcpy(this->spdy, this->devSpdY, sizeof(GS_FLOAT)*num, cudaMemcpyDeviceToHost);
     cudaMemcpy(this->mass, this->devMass, sizeof(GS_FLOAT)*num, cudaMemcpyDeviceToHost);
 
-    this->objects.clear();
+    //this->objects.clear();
     for (int i = 0; i < num; i++) {
+#if 0 
         Point2D pos = point2d_make(this->posx[i], this->posy[i]);
         Point2D spd = point2d_make(this->spdx[i], this->spdy[i]);
         GS_FLOAT mass = this->mass[i];
-        
         this->objects.push_back(Object(pos, spd, mass));
-#if 0 
+#endif
         objects[i].position.x = this->posx[i];
         objects[i].position.y = this->posy[i];
         objects[i].speed.x = this->spdx[i];
         objects[i].speed.y = this->spdy[i];
-#endif
     }
     LEAVE();
 }
-
-#if 0
-__global__ void
-cudaMortonSpaceModel::generateMortonCode() {
-    register int i;
-    register int bd_x = boundX;
-    register int bd_y = boundY;
-    register int sz_x = sizeX;
-    register int sz_y = sizeY;
-    register int num = numObjects;
-
-    i = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < num) {
-        GS_FLOAT xx = thrust::minimum<GS_FLOAT>(posx[i] - bd_x, sz_x - 1);
-        GS_FLOAT yy = thrust::minimum<GS_FLOAT>(posy[i] - bd_y, sz_y - 1);
-        unsigned int xxHigh = (unsigned int)(((unsigned long)xx) >> 32);
-        unsigned int xxLow = (unsigned int)((unsigned long)xx & 0x00000000FFFFFFFF);
-        unsigned int yyHigh = (unsigned int)(((unsigned long)yy) >> 32);
-        unsigned int yyLow = (unsigned int)((unsigned long)yy & 0x00000000FFFFFFFF);
-        unsigned long e_xx = (((unsigned long)expandBits(xxHigh)) << 32) | (expandBits(xxLow));
-        unsigned long e_yy = (((unsigned long)expandBits(yyHigh)) << 32) | (expandBits(yyLow));
-
-        mcode[i] = 2 * e_xx + e_yy;
-    }
-    thrust::sort_by_key(mcode, mcode + num, devPosX);
-    thrust::sort_by_key(mcode, mcode + num, devPosY);
-    thrust::sort_by_key(mcode, mcode + num, devSpdX);
-    thrust::sort_by_key(mcode, mcode + num, devSpdY);
-    thrust::sort_by_key(mcode, mcode + num, devMass);
-}
-
-/* 
- * find the start index for a certain level in the Morton tree
- * fill the starts array to be 1, 0, 0, ... 1, 0, 0, 0, ...
- */
-__global__ void findStarts(int* starts, unsigned int levelMask) {
-    register int i = threadIdx.x + blockIdx.x * blockDim.x;
-    register int numObj = numObjects;
-
-    if (i >= numObj || isComplete[i] == true) {
-        return;
-    }
-    unsigned long currMorton = levelMask & mcode[i], prevMorton;
-    if (i != 0) {
-        prevMorton = levelMask & mcode[i-1];
-    }
-    if (i == 0) {
-        starts[i] = 1;
-    } else if (currMorton != prevMorton) {
-        starts[i] = 1;
-    }
-}
-
-/**
- * find the end index for a certain level in the Morton tree
- * here the starts is in the pattern 1, 1, 2, 2, ... 3, 3, ...
- */
-__global__ void findEnds(int* starts, int* ends) {
-    register int i = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if (i == 0 || i >= numObj || isComplete[i] == true) {
-        return;
-    }
-    int curr = starts[i];
-    int prev = starts[i-1];
-    if (curr != prev) {
-        ends[prev - 1] = i;
-    }
-    if (i == numObj - 1) {
-        ends[curr - 1] = i + 1; 
-    }
-}
-#endif
