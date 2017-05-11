@@ -200,35 +200,36 @@ void SummarizationKernel()
   }
 }
 
-// problem with recursive implementation: 
+// The most obvious problem with our recursive implementation is high execution divergence
 __device__
 float2 CalculateForceOnLeafNode(int leaf_node, int depth, int target_node) {
   // notice: float2 overloads + (part of cuda runtime)
   // depth is for calculating region size (radiusd / (2^depth)); the depth of root is 0
   // target_node is the index in internel_node_child
-
+  volatile float *x_array, *y_array, *mass_array;
+  if (target_node >= 0 && target_node < nbodiesd) {
+    x_array = leaf_node_posx;
+    y_array = leaf_node_posy;
+    mass_array = leaf_node_mass;
+  } else {
+    target_node -= nbodiesd;
+    x_array = internal_node_posx;
+    y_array = internal_node_posy;
+    mass_array = internal_node_mass;
+  }
+  
   float s = radiusd / (1 << depth);
   float dx, dy;
   float px = leaf_node_posx[leaf_node];
   float py = leaf_node_posy[leaf_node];
   float ax = 0.f, ay = 0.f;
   // if the target_node is a leaf node, simply calculate the force and return
-  if (target_node >= 0 && target_node < nbodiesd) {
-    dx = leaf_node_posx[target_node] - px;
-    dy = leaf_node_posy[target_node] - py;
-  } else {
-    dx = internal_node_posx[target_node - nbodiesd] - px;
-    dy = internal_node_posy[target_node - nbodiesd] - py;
-  }
+  dx = x_array[target_node] - px;
+  dy = y_array[target_node] - py;
 
   float distance = dx*dx + dy*dy + epssqd;
   distance = rsqrtf(distance);
-  if (target_node >= 0 && target_node < nbodiesd) {
-    distance = leaf_node_mass[target_node] * distance * distance;
-  } else {
-    target_node -= nbodiesd;   // conversion
-    distance = internal_node_mass[target_node] * distance * distance;
-  }
+  distance = mass_array[target_node] * distance * distance;
 
   // otherwise, calculate s/d, where s is the size of the region (of the target_node) 
   // if s/d < ? (SD_TRESHOLD), see the internal node as an object, calculate the force and return
@@ -306,7 +307,7 @@ void checkLimit() {
   //cudaDeviceGetLimit(&limit, cudaLimitMallocHeapSize);
   //printf("cudaLimitMallocHeapSize: %u\n", (unsigned)limit);
 
-  limit = 99999;
+  limit = 9999;
 
   cudaDeviceSetLimit(cudaLimitStackSize, limit);
   //cudaDeviceSetLimit(cudaLimitPrintfFifoSize, limit);
