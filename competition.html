@@ -13,7 +13,8 @@
     <h3><b>Major Technical challenges</b></h3>
     <p>
     <ul>
-        <li>The first technical challenges is to implement the sequential algorithms correctly. We came out with the
+        <li>
+            The first technical challenges is to implement the sequential algorithms correctly. We came out with the
             second
             sequential algorithm based on the idea in this paper that introduces a parallel version of N-body problems.
             <a href="http://www.sciencedirect.com/science/article/pii/S0021999111007364">The reference can be
@@ -22,6 +23,16 @@
             sequential algorithm.
         </li>
         <li>
+            Compact layout tree construction in GPU. In host machine setting, we can allocate new tree nodes on-the-fly.
+            However, in GPU setting, we need to allocate space for the tree ahead of time. The tree insertion and tree
+            treversal are also not as straightforward as host machine setting.
+        </li>
+        <li>
+            Iterative tree traversal in CUDA Barnes Hut algorithm. Since in a CPU setting, a program can recursively
+            traverse the whole tree, seldomly having to worry about stack size limit. However, since we are building the
+            tree in GPU in a compact layout, we need to use iterative method to traverse the tree. Although it is still
+            viable to use recursive method to do it, it is not efficient. Using recursive method also poses huge thread
+            divergence problem.
         </li>
     </ul>
     </p>
@@ -37,7 +48,6 @@
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain' src="img/simulator_with_bouds.jpg"/><br/> <br/>
             <strong>Figure 2. sequential Barnus-Hut with bounds</strong></div>
-        </br>
         <p>
             <strong>Figure 2</strong> depicts the spiral pattern of galaxy evolution using sequential Barnus-Hut method
             and also the
@@ -50,12 +60,65 @@
         <p>
             <strong>Figure 3</strong> depicts the spiral pattern of galaxy evolution using sequential MortonCode method
             and also
-            the bounds of the morton tree during the iteration period. This picture also shows the different bound pattern
+            the bounds of the morton tree during the iteration period. This picture also shows the different bound
+            pattern
             since the way to build the tree is different compared with the previous Barnus-Hut's Quad-Tree.
         </p>
+
+        <div align="center">
+            <ul>
+                <p>
+                <table class="pure-table pure-table-horizontal">
+                    <thead>
+                    <tr bgcolor="#f0f0f0">
+                        <th>#</th>
+                        <th>Algorithm Version</th>
+                        <th>Total Time (ms)</th>
+                        <th>Time Per Iteration (ms/iter)</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td nowrap="nowrap">seq Barnus-Hut</td>
+                        <td>36280.33</td>
+                        <td>90.70</td>
+                    </tr>
+                    <tr bgcolor="#f0f0f0">
+                        <td>2</td>
+                        <td nowrap="nowrap">cuda Barnus-Hut</td>
+                        <td>TBD</td>
+                        <td>TBD</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td nowrap="nowrap">seq Morton-Code</td>
+                        <td>64027.15</td>
+                        <td>160.07</td>
+                    </tr>
+                    <tr bgcolor="#f0f0f0">
+                        <td>4</td>
+                        <td nowrap="nowrap">cuda Morton-Code</td>
+                        <td>4779.26</td>
+                        <td>11.95</td>
+                    </tr>
+                    </tbody>
+                </table>
+                </p>
+            </ul>
+            <strong>Table 1. Performance comparison table</strong>
+        </div>
+        <p>
+            <strong>Table 1.</strong> shows the performance comparison between different versions of algorithm under
+            the same condition that 2 galaxies and each galaxy has 1000 particles, the galaxy size is 100 and the
+            simulation lasts for 400 iterations.
+            As it shows, we achieve 13.4x speedup for the cuda version and sequential version for Morton-Code
+            algorithm.
+        </p>
+
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain' src="img/performance_comparison.jpg"/><br/> <br/>
-            <strong>Figure 4. performance comparison of the four versions</strong>
+            <strong>Figure 4. performance comparison of the four versions (TBD)</strong>
         </div>
         <p>
             <strong>Figure 4</strong> depicts performance of the two algorithms with sequential and parallel version.
@@ -65,9 +128,10 @@
     <h3><b>Summary of the Expected Show</b></h3>
     <p>
     <ul>
-        <li></li>
-        <li></li>
-        <li></li>
+        <li>
+            we'll demo a short video of the galaxy simulation and shows the performance speedup after using parallel
+            techniques.
+        </li>
     </ul>
 
     </p>
