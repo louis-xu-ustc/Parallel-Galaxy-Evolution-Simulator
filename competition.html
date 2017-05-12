@@ -23,18 +23,24 @@
             sequential algorithm.
         </li>
         <li>
-            Barnes Hut Algorithm - Tree construction on GPU. In host machine setting, we can allocate new tree nodes on-the-fly.
+            Barnes Hut Algorithm - Tree construction on GPU. In host machine setting, we can allocate new tree nodes
+            on-the-fly.
             However, in GPU setting, we need to allocate space for the tree ahead of time. We used array-based layout,
             instead of pointer based layout. We “Allocate” internal node in the memory and use another array to maintain
             the relationship between parent node and children nodes.
         </li>
         <li>
-            Barnes Hut Algorithm - Force calculation on GPU. In OpenMp threaded setting, we can simply parallel the processing of different nodes.
-            However, CUDA supported recursive tree traversal is of very low efficiency and its recursive depth restricted.
+            Barnes Hut Algorithm - Force calculation on GPU. In OpenMp threaded setting, we can simply parallel the
+            processing of different nodes.
+            However, CUDA supported recursive tree traversal is of very low efficiency and its recursive depth
+            restricted.
             Also, unplanned scheduling of nodes onto warps may not have similar traversal depth and since warps execute
-            in lockstep, serious thread divergence problem heavily strikes the performance of the program. To resolve this,
-            we have to implement tree traversal with program-managed stack. We also sort the leaf nodes based on their x and y locations.
-            By so doing, spatially closer nodes are more likely to have similar traversal depth and hence can be processed in the same warp,
+            in lockstep, serious thread divergence problem heavily strikes the performance of the program. To resolve
+            this,
+            we have to implement tree traversal with program-managed stack. We also sort the leaf nodes based on their x
+            and y locations.
+            By so doing, spatially closer nodes are more likely to have similar traversal depth and hence can be
+            processed in the same warp,
             resulting in less thread divergence.
         </li>
         <li>
@@ -74,60 +80,66 @@
         </p>
 
         <div align="center">
-          <img style='height: 80%; width: 80%; object-fit: contain' src="img/Running time (ms:iteration) as Increase of  Galaxy Size.png"/><br/> <br/>
-          <strong>Figure 4. performance comparison of the four versions</strong>
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Runtime_increase_of_number_galaxy.png"/><br/> <br/>
+            <strong>Figure 4. performance comparison of the four versions</strong>
         </div>
         <p>
             <strong>Figure 4</strong> depicts performance of the two algorithms with sequential and parallel version.
         </p>
 
         <div align="center">
-          <img style='height: 80%; width: 80%; object-fit: contain' src="img/Running time (ms:iteration) as Increase of  Objects per Galaxy .png"/><br/> <br/>
-          <strong>Figure 5. performance comparison of the four versions</strong>
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Speedup_increase_of_galaxy_num.png"/><br/> <br/>
+            <strong>Figure 5. performance comparison of the four versions</strong>
         </div>
         <p>
             <strong>Figure 5</strong> depicts performance of the two algorithms with sequential and parallel version.
         </p>
 
         <div align="center">
-          <img style='height: 80%; width: 80%; object-fit: contain' src="img/Running time (ms:iteration) as Increase of Number of Galaxy.jpg"/><br/> <br/>
-          <strong>Figure 6. performance comparison of the four versions</strong>
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Runtime_increase_of_galaxy_size.png"/><br/> <br/>
+            <strong>Figure 6. performance comparison of the four versions</strong>
         </div>
         <p>
             <strong>Figure 6</strong> depicts performance of the two algorithms with sequential and parallel version.
         </p>
 
         <div align="center">
-          <img style='height: 80%; width: 80%; object-fit: contain' src="img/BH and MC's speedup compared to correspronding Seq Version As the increase of GALAXY SIZE.png"/><br/> <br/>
-          <strong>Figure 7. performance comparison of the four versions</strong>
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Speedup_increase_of_galaxy_size.png"/><br/> <br/>
+            <strong>Figure 7. performance comparison of the four versions</strong>
         </div>
         <p>
             <strong>Figure 7</strong> depicts performance of the two algorithms with sequential and parallel version.
         </p>
 
         <div align="center">
-          <img style='height: 80%; width: 80%; object-fit: contain' src="img/BH and MC's speedup compared to correspronding Seq Version as the increase of Galaxy.png"/><br/> <br/>
-          <strong>Figure 8. performance comparison of the four versions</strong>
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Runtime_increase_of_objects_per_galaxy.png"/><br/> <br/>
+            <strong>Figure 8. performance comparison of the four versions</strong>
         </div>
         <p>
             <strong>Figure 8</strong> depicts performance of the two algorithms with sequential and parallel version.
         </p>
 
+
         <div align="center">
-          <img style='height: 80%; width: 80%; object-fit: contain' src="img/BH and MC's speedup compared to correspronding Seq Version As the increase of Objects Per Galaxy.png"/><br/> <br/>
-          <strong>Figure 9. performance comparison of the four versions</strong>
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Speedup_increase_of_objects_per_galaxy.png"/><br/> <br/>
+            <strong>Figure 8. performance comparison of the four versions</strong>
         </div>
         <p>
-            <strong>Figure 9</strong> depicts performance of the two algorithms with sequential and parallel version.
+            <strong>Figure 8</strong> depicts performance of the two algorithms with sequential and parallel version.
         </p>
-
     </ul>
     <h3><b>Summary of the Expected Show</b></h3>
     <p>
     <ul>
         <li>
-            we'll demo a short video of the galaxy simulation and shows the performance speedup after using parallel
-            techniques.
+            slides that summary techniques used to implement the sequential and CUDA algorithms for galaxy evolution
+            simulation, the performance comparision and evaluation.
         </li>
     </ul>
 
