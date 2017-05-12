@@ -249,6 +249,7 @@ void SortKernel() {
                 } else if (child >= 0) {
                     // child is a body
                     sortd[start] = child;
+                    __threadfence();
                     start++;
                 }
             }
@@ -256,6 +257,14 @@ void SortKernel() {
         }
         __syncthreads();  // throttle
     }
+    __syncthreads();
+
+ //    if ((threadIdx.x + blockIdx.x * blockDim.x) == 0) {
+	//     for (int i = 0; i < nbodiesd; ++i)
+	//     {
+	//     	printf("sortd[%d] = %d\n", i, sortd[i]);
+	//     }
+	// }	
 }
 
 // The most obvious problem with our recursive implementation is high execution divergence
@@ -344,7 +353,7 @@ void ForceCalculationKernel() {
     while (i < nbodiesd) {
         k = sortd[i];
         // k = i;
-        acceleration = CalculateForceOnLeafNode(i);
+        acceleration = CalculateForceOnLeafNode(k);
         leaf_node_accx[k] = acceleration.x;
         leaf_node_accy[k] = acceleration.y;
         i += inc;
@@ -551,6 +560,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaFree(velyl);
     cudaFree(startl);
     cudaFree(countl);
+    cudaFree(sortl);
     cudaFree(leaf_node_accxl);
     cudaFree(leaf_node_accyl);
     cudaFree(internal_node_childl);
