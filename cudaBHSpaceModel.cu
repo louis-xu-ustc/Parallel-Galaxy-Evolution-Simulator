@@ -39,7 +39,7 @@ __constant__ volatile float *internal_node_mass;    // nbodiesd
 __constant__ volatile float *internal_node_posx;    // nbodiesd
 __constant__ volatile float *internal_node_posy;    // nbodiesd
 __device__ volatile float radiusd;
-__constant__ volatile int *countd, *startd;
+__constant__ volatile int *countd, *startd, *sortd;
 
 
 __global__
@@ -52,6 +52,7 @@ void InitializationKernel() {
     internal_node_mass[k] = -1.0f;
     internal_node_posx[k] = 500.f;
     internal_node_posy[k] = 300.f;
+    startd[k] = 0;
     internal_node_num = 0;  // internel_node_num refers to the index of the last internal node
 }
 
@@ -97,6 +98,7 @@ void TreeBuildingKernel()
             float y = ((j >> 1) & 1) * r;
             r *= 0.5f;
             internal_node_mass[internal_node_idx] = -1.0f;
+            startd[internal_node_idx] = -1;
             x = internal_node_posx[internal_node_idx] = internal_node_posx[n] - r + x;
             y = internal_node_posy[internal_node_idx] = internal_node_posy[n] - r + y;
             for (int k = 0; k < 4; k++) {
@@ -131,9 +133,11 @@ void TreeBuildingKernel()
 __global__
 void SummarizationKernel()
 {
-  int last_internal_node = internal_node_num; 
+  int last_internal_node = internal_node_num;
   int inc = blockDim.x * gridDim.x;
   __shared__ volatile int cache[THREADS3 * 4];
+  int j;
+  int cnt;
   
   // bottom-up
   int k = last_internal_node - (threadIdx.x + blockIdx.x * blockDim.x);
@@ -143,16 +147,16 @@ void SummarizationKernel()
     float px = 0.0f;
     float py = 0.0f;
     float m;
-    int cnt = 0;
-    int j = 0;
+    cnt = 0;
+    j = 0;
 
     if (missing == 0) {
       for (int i = 0; i < 4; i++) {
         int child = internal_node_child[k*4+i];
         // comment: if this child is not null pointer (may be internal or leaf)
         if (child >= 0) {
-	  cache[missing*THREADS3+threadIdx.x] = child;
-	  float m = 0.f;
+	        cache[missing*THREADS3+threadIdx.x] = child;
+	        float m = 0.f;
           if (child >= nbodiesd) {
             // it is a internal node
             m = internal_node_mass[child - nbodiesd];
@@ -165,16 +169,16 @@ void SummarizationKernel()
             missing--;
             cm += m;
             if (child >= nbodiesd) {
+              cnt += (countd[child - nbodiesd] - 1); // -1 for excluding itself
               // it is a internal node
               px += internal_node_posx[child - nbodiesd] * m;
               py += internal_node_posy[child - nbodiesd] * m;
-	      cnt += countd[child - nbodiesd] - 1; // -1 for excluding itself
             } else {
               // it is a leaf node
               px += leaf_node_posx[child] * m;
               py += leaf_node_posy[child] * m;
             } 
-	  }
+	        }
           j++;
         }
       }
@@ -185,20 +189,28 @@ void SummarizationKernel()
         do {
         // poll missing children
         int child = cache[(missing-1)*THREADS3+threadIdx.x];
-	m = internal_node_mass[child - nbodiesd];
-	if (m >= 0.f) {
-	  missing--;
-	  cm += m;
-	  px += internal_node_posx[child - nbodiesd] * m;
-	  py += internal_node_posy[child - nbodiesd] * m;
-	  cnt += countd[child - nbodiesd] - 1; // -1 for excluding itself
-	}
+      	m = internal_node_mass[child - nbodiesd];
+      	if (m >= 0.f) {
+          missing--;
+          cm += m;
+          if (child >= nbodiesd) {
+            cnt += (countd[child - nbodiesd] - 1); // -1 for excluding itself
+            // it is a internal node
+            px += internal_node_posx[child - nbodiesd] * m;
+            py += internal_node_posy[child - nbodiesd] * m;
+          } else {
+            // it is a leaf node
+            px += leaf_node_posx[child] * m;
+            py += leaf_node_posy[child] * m;
+          }
+      	}
       } while ((m >= 0.f) && (missing !=0));
     }
 
     if (missing == 0) {
       // all children are ready, so store computed information
       countd[k] = cnt;
+//      printf("%d\n", countd[k]);
       float m = 1.0f / cm;
       internal_node_posx[k] = px * m;
       internal_node_posy[k] = py * m;
@@ -207,10 +219,48 @@ void SummarizationKernel()
       k -= inc;  // move on to next cell
     }
   }
+  __threadfence();
 }
 
 
+__global__
+// __launch_bounds__(THREADS4, FACTOR4)
+void SortKernel()
+{
+  int i, k, child, inc, start;
 
+  // comment: stride, just like inc 
+  inc = blockDim.x * gridDim.x;
+  k = threadIdx.x + blockIdx.x * blockDim.x;
+
+  // iterate over all cells assigned to thread
+  while (k <= internal_node_num) {
+    // comment: the startd is used to signify the boundary in the sortd array
+    // comment: it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
+    start = startd[k];
+    // comment: this is quite like kernel 3, if the start is still -1, it keeps polling until the start is ready
+    // comment: at the start, only root is able to compute because only its start is not -1 (it is 0)
+    // comment: start serves both purpose, one is for signify whether it can start, another is for signify the area it puts its elements
+    if (start >= 0) {
+      // comment: traverse from left child to right child
+      for (i = 0; i < 4; i++) {
+        // comment: iterate through the children of the cell
+        child = internal_node_child[k*4+i];
+        if (child >= nbodiesd) {
+          // child is a cell
+          startd[child - nbodiesd] = start;  // set start ID of child
+          start += countd[child - nbodiesd];  // add #bodies in subtree
+        } else if (child >= 0) {
+          // child is a body
+          sortd[start] = child;  // record body in 'sorted' array
+          start++;
+        }
+      }
+      k += inc;  // move on to next cell
+    }
+    __syncthreads();  // throttle
+  }
+}
 
 // The most obvious problem with our recursive implementation is high execution divergence
 __device__
@@ -292,6 +342,7 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
 __global__
 void ForceCalculationKernel()
 {
+  // printf("entering ForceCalculationKernel\n");
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += blockDim.x * gridDim.x) {
     // (target_node = nbodiesd) for signifying root node
     float2 acceleration = CalculateForceOnLeafNode(i);
@@ -374,7 +425,7 @@ int blocks;
 int nbodies;
 float *mass, *posx, *posy, *velx, *vely;
 float *massl, *posxl, *posyl, *velxl, *velyl;
-int *countl, *startl;
+int *countl, *startl, *sortl;
 float *leaf_node_accxl, *leaf_node_accyl;
 int *internal_node_childl;
 float *internal_node_massl, *internal_node_posxl, *internal_node_posyl;
@@ -428,6 +479,9 @@ float dtime, dthf, epssq, itolsq;
     cudaMalloc((void **)&startl, sizeof(int) * (nbodies + 1));
     cudaMemcpyToSymbol(startd, &startl, sizeof(void *));
 
+    cudaMalloc((void **)&sortl, sizeof(int) * (nbodies + 1));
+    cudaMemcpyToSymbol(sortd, &sortl, sizeof(void *));
+
     // allocate leaf node acceleration information
     cudaMalloc((void **)&leaf_node_accxl, sizeof(float) * (nbodies + 1));
     cudaMalloc((void **)&leaf_node_accyl, sizeof(float) * (nbodies + 1));
@@ -463,8 +517,10 @@ float dtime, dthf, epssq, itolsq;
     cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
 
     InitializationKernel <<< 1, 1>>>();
-    TreeBuildingKernel <<< blocks * FACTOR3, THREADS3>>>();
-    SummarizationKernel <<< blocks * FACTOR4, THREADS4>>>();
+    TreeBuildingKernel <<< blocks * FACTOR2, THREADS2>>>();
+    SummarizationKernel <<< 1, 1>>>();
+    SortKernel <<< 1, 1>>>();
+    // printf("before ForceCalculationKernel\n");
     ForceCalculationKernel <<< blocks * FACTOR5, THREADS5>>>();
     IntegrationKernel <<< blocks * FACTOR6, THREADS6>>>();
 
