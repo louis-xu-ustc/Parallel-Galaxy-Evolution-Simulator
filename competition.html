@@ -23,16 +23,24 @@
             sequential algorithm.
         </li>
         <li>
-            Compact layout tree construction in GPU. In host machine setting, we can allocate new tree nodes on-the-fly.
-            However, in GPU setting, we need to allocate space for the tree ahead of time. The tree insertion and tree
-            treversal are also not as straightforward as host machine setting.
+            Barnes Hut Algorithm - Tree construction on GPU. In host machine setting, we can allocate new tree nodes on-the-fly.
+            However, in GPU setting, we need to allocate space for the tree ahead of time. We used array-based layout,
+            instead of pointer based layout. We “Allocate” internal node in the memory and use another array to maintain
+            the relationship between parent node and children nodes.
         </li>
         <li>
-            Iterative tree traversal in CUDA Barnes Hut algorithm. Since in a CPU setting, a program can recursively
-            traverse the whole tree, seldomly having to worry about stack size limit. However, since we are building the
-            tree in GPU in a compact layout, we need to use iterative method to traverse the tree. Although it is still
-            viable to use recursive method to do it, it is not efficient. Using recursive method also poses huge thread
-            divergence problem.
+            Barnes Hut Algorithm - Force calculation on GPU. In OpenMp threaded setting, we can simply parallel the processing of different nodes.
+            However, CUDA supported recursive tree traversal is of very low efficiency and its recursive depth restricted.
+            Also, unplanned scheduling of nodes onto warps may not have similar traversal depth and since warps execute
+            in lockstep, serious thread divergence problem heavily strikes the performance of the program. To resolve this,
+            we have to implement tree traversal with program-managed stack. We also sort the leaf nodes based on their x and y locations.
+            By so doing, spatially closer nodes are more likely to have similar traversal depth and hence can be processed in the same warp,
+            resulting in less thread divergence.
+        </li>
+        <li>
+            Barnes Hut Algorithm - lockfree atomic operations to control access to shared data;
+            special instructions (__threadfence, __syncthreads, and etc.) to guarantee correctness of the program;
+            persist data in GPU between different iterations;
         </li>
     </ul>
     </p>
@@ -66,75 +74,13 @@
         </p>
 
         <div align="center">
-            <ul>
-                <p>
-                <table class="pure-table pure-table-horizontal">
-                    <thead>
-                    <tr bgcolor="#f0f0f0">
-                        <th>#</th>
-                        <th>Loop Times</th>
-                        <th>Number of Galaxy</th>
-                        <th>Objects per Galaxy</th>
-                        <th>Galaxy size</th>
-                        <th>seq Barnus-Hut</th>
-                        <th>cuda Barnus-Hut</th>
-                        <th>seq Morton-Code</th>
-                        <th>cuda Morton-Code</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td>1</td>
-                        <td>400</td>
-                        <td>2</td>
-                        <td>1000</td>
-                        <td>100</td>
-                        <td nowrap="nowrap">36280.33 / 90.70</td>
-                        <td>TBD / TBD</td>
-                        <td>64027.15 / 160.07</td>
-                        <td>4779.26 / 11.95</td>
-                    </tr>
-                    <tr bgcolor="#f0f0f0">
-                        <td>2</td>
-                        <td>1000</td>
-                        <td>4</td>
-                        <td>1000</td>
-                        <td>100</td>
-                        <td nowrap="nowrap">158524.25 / 158.52</td>
-                        <td>TBD / TBD</td>
-                        <td>292302.57 / 292.30</td>
-                        <td>21997.26 / 22.00 </td>
-                    </tr>
-                    <!--<tr>-->
-                        <!--<td>3</td>-->
-                        <!--<td nowrap="nowrap">seq Morton-Code</td>-->
-                        <!--<td>64027.15</td>-->
-                        <!--<td>160.07</td>-->
-                    <!--</tr>-->
-                    <!--<tr bgcolor="#f0f0f0">-->
-                        <!--<td>4</td>-->
-                        <!--<td nowrap="nowrap">cuda Morton-Code</td>-->
-                        <!--<td>4779.26</td>-->
-                        <!--<td>11.95</td>-->
-                    <!--</tr>-->
-                    </tbody>
-                </table>
-                 <font size="3"> <i> The content shows Total Time (ms) / Time Per Iteration (ms/iter)</i></font>
-                </p>
-            </ul>
-            <strong>Table 1. Performance comparison table</strong>
-        </div>
-        <p>
-            <strong>Table 1.</strong> shows the performance comparison between different versions of algorithm under
-            the same condition that 2 galaxies and each galaxy has 1000 particles, the galaxy size is 100 and the
-            simulation lasts for 400 iterations.
-            As it shows, we achieve 13.4x speedup for the cuda version and sequential version for Morton-Code
-            algorithm.
-        </p>
-
-        <div align="center">
-            <img style='height: 80%; width: 80%; object-fit: contain' src="img/performance_comparison.jpg"/><br/> <br/>
-            <strong>Figure 4. performance comparison of the four versions (TBD)</strong>
+          <img style='height: 80%; width: 80%; object-fit: contain' src="img/Running time (ms:iteration) as Increase of  Galaxy Size.png"/><br/> <br/>
+          <img style='height: 80%; width: 80%; object-fit: contain' src="img/Running time (ms:iteration) as Increase of  Objects per Galaxy .png"/><br/> <br/>
+          <img style='height: 80%; width: 80%; object-fit: contain' src="img/Running time (ms:iteration) as Increase of Number of Galaxy.jpg"/><br/> <br/>
+            <img style='height: 80%; width: 80%; object-fit: contain' src="img/BH and MC's speedup compared to correspronding Seq Version As the increase of GALAXY SIZE.png"/><br/> <br/>
+            <img style='height: 80%; width: 80%; object-fit: contain' src="img/BH and MC's speedup compared to correspronding Seq Version as the increase of Galaxy.png"/><br/> <br/>
+            <img style='height: 80%; width: 80%; object-fit: contain' src="img/BH and MC's speedup compared to correspronding Seq Version As the increase of Objects Per Galaxy.png"/><br/> <br/>
+            <strong>Figure 4. performance comparison of the four versions</strong>
         </div>
         <p>
             <strong>Figure 4</strong> depicts performance of the two algorithms with sequential and parallel version.
