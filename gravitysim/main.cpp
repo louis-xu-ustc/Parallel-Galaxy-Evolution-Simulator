@@ -18,7 +18,7 @@
 #define FAILURE 1
 
 #define ENABLE_SEQ_BARNES
-#define ENABLE_SEQ_MORTON
+//#define ENABLE_SEQ_MORTON
 #define ENABLE_CUDA_BARNES
 
 static int gl_init(int width, int height, const char *title);
@@ -75,6 +75,18 @@ int main(int argc, const char * argv[]) {
     execute_model(controller, cudaBarnesHutModel, cudaBHPerf);
     report->addReport(*cudaBHPerf);
 #endif
+
+    float total_deviation = 0.f;
+    // do barnes hut accuracy analysis
+    for (int i = 0; i < (int)seqBarnesHutModel->objects.size(); ++i)
+    {
+        Point2D dr = point2d_sub(seqBarnesHutModel->objects[i].position, cudaBarnesHutModel->objects[i].position);
+        GS_FLOAT distance = point2d_length(dr);
+        total_deviation += distance;
+    }
+    // calculate the distance/iteration
+    printf("the deriation is %f\n", (total_deviation/config.loop_times));
+
     // seqFMM
     // cudaFMM
     report->showReport();
