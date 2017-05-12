@@ -24,6 +24,18 @@
 #define FACTOR5 5
 #define FACTOR6 3
 
+static bool first_time = true;
+static int blocks;
+static int nbodies;
+static float *mass, *posx, *posy, *velx, *vely;
+static float *massl, *posxl, *posyl, *velxl, *velyl;
+static int *countl;
+static float *leaf_node_accxl, *leaf_node_accyl;
+static int *internal_node_childl;
+static float *internal_node_massl, *internal_node_posxl, *internal_node_posyl;
+static float dtime, dthf, epssq, itolsq;
+
+
 // nbodiesd -> number of leaf nodes
 __constant__ int nbodiesd;
 // dtimed -> update interval
@@ -38,6 +50,7 @@ __constant__ volatile float *internal_node_mass;    // nbodiesd
 __constant__ volatile float *internal_node_posx;    // nbodiesd
 __constant__ volatile float *internal_node_posy;    // nbodiesd
 __device__ volatile float radiusd;
+__constant__ volatile int *countd;
 
 
 __global__
@@ -141,6 +154,8 @@ void SummarizationKernel()
     float px = 0.0f;
     float py = 0.0f;
     float m;
+    int cnt = 0;
+    int j = 0;
 
     if (missing == 0) {
       for (int i = 0; i < 4; i++) {
@@ -164,14 +179,17 @@ void SummarizationKernel()
               // it is a internal node
               px += internal_node_posx[child - nbodiesd] * m;
               py += internal_node_posy[child - nbodiesd] * m;
+	      cnt += countd[child - nbodiesd] - 1; // -1 for excluding itself
             } else {
               // it is a leaf node
               px += leaf_node_posx[child] * m;
               py += leaf_node_posy[child] * m;
-            }
-          }
+            } 
+	  }
+          j++;
         }
       }
+      cnt += j;
     }
 
     if (missing != 0) {
@@ -184,12 +202,14 @@ void SummarizationKernel()
 	  cm += m;
 	  px += internal_node_posx[child - nbodiesd] * m;
 	  py += internal_node_posy[child - nbodiesd] * m;
+	  cnt += countd[child - nbodiesd] - 1; // -1 for excluding itself
 	}
       } while ((m >= 0.f) && (missing !=0));
     }
 
     if (missing == 0) {
       // all children are ready, so store computed information
+      countd[k] = cnt;
       float m = 1.0f / cm;
       internal_node_posx[k] = px * m;
       internal_node_posy[k] = py * m;
@@ -351,24 +371,29 @@ void checkLimit() {
   //printf("New cudaLimitMallocHeapSize: %u\n", (unsigned)limit);
 }
 
+
 void
 cudaBHSpaceModel::update(GS_FLOAT dt) {
     size_t i;
 #ifdef CONST_TIME
     dt = CONST_TIME;
 #endif
-    int blocks = 15; // number of multiprocessor, specific to K40m
-    int nbodies = this->objects.size();
+if (first_time) {
+    printf("first time\n");
+    first_time = false;
+
+    blocks = 15; // number of multiprocessor, specific to K40m
+    nbodies = this->objects.size();
 
     // checkLimit();
 
     // for segregate information of objects into different array
     // on the host
-    float *mass = (float *)malloc(sizeof(float) * nbodies);
-    float *posx = (float *)malloc(sizeof(float) * nbodies);
-    float *posy = (float *)malloc(sizeof(float) * nbodies);
-    float *velx = (float *)malloc(sizeof(float) * nbodies);
-    float *vely = (float *)malloc(sizeof(float) * nbodies);
+    mass = (float *)malloc(sizeof(float) * nbodies);
+    posx = (float *)malloc(sizeof(float) * nbodies);
+    posy = (float *)malloc(sizeof(float) * nbodies);
+    velx = (float *)malloc(sizeof(float) * nbodies);
+    vely = (float *)malloc(sizeof(float) * nbodies);
     for (i = 0; i < nbodies; i++) {
         posx[i] = this->objects[i].position.x;
         posy[i] = this->objects[i].position.y;
@@ -378,7 +403,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     }
 
     // on the device
-    float *massl, *posxl, *posyl, *velxl, *velyl;
     cudaMalloc((void **)&massl, sizeof(float) * (nbodies + 1));
     cudaMalloc((void **)&posxl, sizeof(float) * (nbodies + 1));
     cudaMalloc((void **)&posyl, sizeof(float) * (nbodies + 1));
@@ -399,8 +423,11 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(leaf_node_velx, &velxl, sizeof(void *));
     cudaMemcpyToSymbol(leaf_node_vely, &velyl, sizeof(void *));
 
+    // for counting how many nodes an internal node have
+    cudaMalloc((void **)&countl, sizeof(int) * (nbodies + 1));
+    cudaMemcpyToSymbol(countd, &countl, sizeof(void *));
+
     // allocate leaf node acceleration information
-    float *leaf_node_accxl, *leaf_node_accyl;
     cudaMalloc((void **)&leaf_node_accxl, sizeof(float) * (nbodies + 1));
     cudaMalloc((void **)&leaf_node_accyl, sizeof(float) * (nbodies + 1));
 
@@ -410,8 +437,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
 
     // allocate space for internal nodes
     // on the device
-    int *internal_node_childl;
-    float *internal_node_massl, *internal_node_posxl, *internal_node_posyl; 
     cudaMalloc((void**)&internal_node_childl, sizeof(int) * (nbodies + 1) * 4);
     cudaMalloc((void**)&internal_node_massl, sizeof(float) * (nbodies + 1));
     cudaMalloc((void**)&internal_node_posxl, sizeof(float) * (nbodies + 1));
@@ -424,7 +449,6 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(internal_node_posy, &internal_node_posyl, sizeof(void *));
 
     // calculation factors
-    float dtime, dthf, epssq, itolsq;
     dtime = dt;
     dthf = dtime * 0.5f;
     epssq = 0.05 * 0.05;  // EPSILON; for soothing
@@ -436,6 +460,8 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(dthfd, &dthf, sizeof(float));
     cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
     cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
+
+}
 
     InitializationKernel <<< 1, 1>>>();
     TreeBuildingKernel <<< blocks * FACTOR3, THREADS3>>>();
@@ -451,18 +477,15 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
 
     // update leaf_node_posx, leaf_node_posy, leaf_node_velx, leaf_node_vely to objects array
     for (i = 0; i < nbodies; i++) {
-    	float posxx = posx[i];
-    	float posyy = posy[i];
-    	float velxx = velx[i];
-    	float velyy = vely[i];
-        this->objects[i].position.x = posxx;
-        this->objects[i].position.y = posyy;
-        this->objects[i].speed.x = velxx;
-        this->objects[i].speed.y = velyy;
+        this->objects[i].position.x = posx[i];
+        this->objects[i].position.y = posy[i];
+        this->objects[i].speed.x = velx[i];
+        this->objects[i].speed.y = vely[i];
     }
 
     remove_objects_outside_bounds();
 
+#ifdef asdadasdasd
     free(mass);
     free(posx);
     free(posy);
@@ -480,6 +503,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaFree(internal_node_massl);
     cudaFree(internal_node_posxl);
     cudaFree(internal_node_posyl);
+#endif
 }
 
 cudaBHSpaceModel::~cudaBHSpaceModel() {
