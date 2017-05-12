@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
+#include <assert.h>
 #include "cuda.h"
 #include "cutil_math.h"
 #include "cudaBHSpaceModel.h"
@@ -169,7 +170,8 @@ void SummarizationKernel()
             missing--;
             cm += m;
             if (child >= nbodiesd) {
-              cnt += (countd[child - nbodiesd] - 1); // -1 for excluding itself
+              cnt += (countd[child - nbodiesd]);
+              // assert(cnt >= 0);
               // it is a internal node
               px += internal_node_posx[child - nbodiesd] * m;
               py += internal_node_posy[child - nbodiesd] * m;
@@ -177,12 +179,13 @@ void SummarizationKernel()
               // it is a leaf node
               px += leaf_node_posx[child] * m;
               py += leaf_node_posy[child] * m;
-            } 
+            }
 	        }
           j++;
         }
       }
       cnt += j;
+      // assert(cnt >= 0);
     }
 
     if (missing != 0) {
@@ -194,7 +197,16 @@ void SummarizationKernel()
           missing--;
           cm += m;
           if (child >= nbodiesd) {
-            cnt += (countd[child - nbodiesd] - 1); // -1 for excluding itself
+            cnt += (countd[child - nbodiesd]);
+            // printf("index is %d\n", child - nbodiesd);
+            // printf("now XXXX is %d\n", countd[child - nbodiesd] - 1);
+            // if (countd[child - nbodiesd] == 0) {
+            //     printf("first child: %d\n", internal_node_child[(child - nbodiesd)*4]);
+            //     printf("second child: %d\n", internal_node_child[(child - nbodiesd)*4+1]);
+            //     printf("third child: %d\n", internal_node_child[(child - nbodiesd)*4+2]);
+            //     printf("forth child: %d\n", internal_node_child[(child - nbodiesd)*4+3]);
+            //   }
+            assert(cnt >= 0);
             // it is a internal node
             px += internal_node_posx[child - nbodiesd] * m;
             py += internal_node_posy[child - nbodiesd] * m;
@@ -204,13 +216,13 @@ void SummarizationKernel()
             py += leaf_node_posy[child] * m;
           }
       	}
-      } while ((m >= 0.f) && (missing !=0));
+      } while ((m >= 0.f) && (missing != 0));
     }
 
     if (missing == 0) {
       // all children are ready, so store computed information
       countd[k] = cnt;
-//      printf("%d\n", countd[k]);
+      // assert(countd[k] >= 0);
       float m = 1.0f / cm;
       internal_node_posx[k] = px * m;
       internal_node_posy[k] = py * m;
@@ -219,7 +231,7 @@ void SummarizationKernel()
       k -= inc;  // move on to next cell
     }
   }
-  __threadfence();
+  __syncthreads();
 }
 
 
@@ -474,6 +486,7 @@ float dtime, dthf, epssq, itolsq;
 
     // for counting how many nodes an internal node have
     cudaMalloc((void **)&countl, sizeof(int) * (nbodies + 1));
+    cudaMemset(countl, 0, sizeof(int) * (nbodies + 1));
     cudaMemcpyToSymbol(countd, &countl, sizeof(void *));
 
     cudaMalloc((void **)&startl, sizeof(int) * (nbodies + 1));
@@ -518,8 +531,8 @@ float dtime, dthf, epssq, itolsq;
 
     InitializationKernel <<< 1, 1>>>();
     TreeBuildingKernel <<< blocks * FACTOR2, THREADS2>>>();
-    SummarizationKernel <<< 1, 1>>>();
-    SortKernel <<< 1, 1>>>();
+    SummarizationKernel <<< blocks * FACTOR3, THREADS3>>>();
+    SortKernel <<< blocks * FACTOR4, THREADS4>>>();
     // printf("before ForceCalculationKernel\n");
     ForceCalculationKernel <<< blocks * FACTOR5, THREADS5>>>();
     IntegrationKernel <<< blocks * FACTOR6, THREADS6>>>();
