@@ -17,6 +17,7 @@ SpaceController::update(GS_FLOAT dt, SpaceModel *model) {
     static GS_FLOAT last_update_time = 0.0;
     model->update(dt);
     last_update_time += dt;
+#if DRAW_OBJECTS
     if (last_update_time >= (1.0 / MAX_FPS)) {
         this->view->clear();
         this->view->draw_objects(model->objects);
@@ -29,6 +30,7 @@ SpaceController::update(GS_FLOAT dt, SpaceModel *model) {
         this->view->display();
         last_update_time = 0.0;
     }
+#endif
 }
 
 /**

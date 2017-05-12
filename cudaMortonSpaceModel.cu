@@ -152,11 +152,10 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
 #endif
     ENTER();
 
+    struct timespec one, two, three, four, five;
+    clock_gettime(CLOCK_REALTIME, &one);
     int numCells = this->tree->getCells().size();
     alloc(numObjects, numCells);
-
-    struct timespec one, two, three, four;
-    clock_gettime(CLOCK_REALTIME, &one);
 
     // getObjects from the tree and then fill in buffers for CUDA
     std::vector<MortonTreeObject*> objs = this->tree->getObjects();
@@ -165,7 +164,6 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
     fillCells(cells);
     clock_gettime(CLOCK_REALTIME, &two);
 
-#if 1
     int threads = 512;
     int blocks = UPDIV(numObjects, threads);
     applyToObjectsKernel<<<blocks, threads>>>(dt, numObjects);
@@ -177,10 +175,14 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
     //cudaGetErrorString(cudaGetLastError());
     //printf("Sync: %s\n", cudaGetErrorString(cudaThreadSynchronize()));
 
+    clock_gettime(CLOCK_REALTIME, &three);
+    
     // get the updated positions and fill in this->objects
     fillObjectsFromCuda(this->objects);
     dealloc();
-#else
+    clock_gettime(CLOCK_REALTIME, &four);
+
+#if 0
     this->tree->applyToObjects(dt);
     this->objects.clear();
     for (size_t i = 0; i < objs.size(); i++) {
@@ -213,7 +215,6 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
         }
     }
 #endif
-    clock_gettime(CLOCK_REALTIME, &three);
 
     remove_objects_outside_bounds();
     this->numObjects = this->objects.size();
@@ -222,13 +223,13 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
     this->tree = new MortonTree(this->bounds);
     this->tree->fillMortonTreeObjects(this->objects);
     this->tree->generateMortonTree();
-    clock_gettime(CLOCK_REALTIME, &four);
+    clock_gettime(CLOCK_REALTIME, &five);
 
-    GS_DOUBLE memory_overhead1 = get_timediff(two, one);
+    GS_DOUBLE memory_overhead = get_timediff(two, one) + get_timediff(four, three);
     GS_DOUBLE cuda_calculation = get_timediff(three, two);
-    GS_DOUBLE morton_tree_generation = get_timediff(four, three);
-    GS_DOUBLE total_time = memory_overhead1 + cuda_calculation + morton_tree_generation;
-    PERF("memorycpy overhead = %.2f%%\n", memory_overhead1/total_time*100);
+    GS_DOUBLE morton_tree_generation = get_timediff(five, four);
+    GS_DOUBLE total_time = memory_overhead + cuda_calculation + morton_tree_generation;
+    PERF("memorycpy overhead = %.2f%%\n", memory_overhead/total_time*100);
     PERF("cuda calculation  = %.2f%%\n", cuda_calculation/total_time*100);
     PERF("morton tree generation  = %.2f%%\n", morton_tree_generation/total_time*100);
 

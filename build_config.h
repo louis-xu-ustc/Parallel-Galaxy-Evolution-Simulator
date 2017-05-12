@@ -23,6 +23,7 @@
 
 // 1 - black background and white foreground 
 // 0 - white background and black foreground
+#define DRAW_OBJECTS    1
 #define BG_BLACK_FG_WHITE 1 
 #define DRAW_SOLID  1
 #define DRAW_BIG    0

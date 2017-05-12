@@ -65,24 +65,28 @@ int main(int argc, const char * argv[]) {
     Perf *seqBarnesPerf = new Perf(config.loop_times, "seqBarnes");
     execute_model(controller, seqBarnesHutModel, seqBarnesPerf);
     report->addReport(*seqBarnesPerf);
+    printf("finish seqBH\n");
 #endif
 #ifdef ENABLE_SEQ_MORTON
     // seqMorton
     Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
     execute_model(controller, seqMortonModel, seqMortonPerf); 
     report->addReport(*seqMortonPerf);
+    printf("finish seqMorton\n");
 #endif
 #ifdef ENABLE_CUDA_BARNES
     // cudaBarnes
     Perf *cudaBHPerf = new Perf(config.loop_times, "cudaBarnes");
     execute_model(controller, cudaBarnesHutModel, cudaBHPerf);
     report->addReport(*cudaBHPerf);
+    printf("finish cudaBH\n");
 #endif
 #ifdef ENABLE_CUDA_MORTON
     // cudaMorton
     Perf *cudaMortonPerf = new Perf(config.loop_times, "cudaMorton");
     execute_model(controller, cudaMortonModel, cudaMortonPerf);
     report->addReport(*cudaMortonPerf);
+    printf("finish cudaMorton\n");
 #endif
     // seqFMM
     // cudaFMM
