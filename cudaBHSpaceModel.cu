@@ -258,14 +258,35 @@ void SortKernel() {
         __syncthreads();  // throttle
     }
     __syncthreads();
-
- //    if ((threadIdx.x + blockIdx.x * blockDim.x) == 0) {
-	//     for (int i = 0; i < nbodiesd; ++i)
-	//     {
-	//     	printf("sortd[%d] = %d\n", i, sortd[i]);
-	//     }
-	// }	
 }
+
+__device__ GS_INLINE float2 float2_add(float2 a, float2 b) {
+    return make_float2(a.x + b.x, a.y + b.y);
+}
+
+__device__ GS_INLINE float2 float2_sub(float2 a, float2 b) {
+    return make_float2(a.x - b.x, a.y - b.y);
+}
+
+__device__ GS_INLINE float2 float2_mul(float2 a, float x) {
+    return make_float2(a.x * x, a.y * x);
+}
+
+__device__ GS_INLINE float2 float2_zero() {
+    return make_float2(0.f, 0.f);
+}
+
+__device__ GS_INLINE GS_FLOAT float2_length(float2 dr) {
+    return sqrt((dr.x * dr.x) + (dr.y * dr.y));
+}
+
+__device__ GS_INLINE float2 calculate_force(float2 aPos, float2 bPos, float bMass) {
+    register float2 dr = float2_sub(bPos, aPos);
+    register GS_FLOAT r = float2_length(dr) + SOFT_CONST;
+    register GS_FLOAT f = G_CONST * bMass / SQUARE(r);
+    return float2_mul(dr, f/r);
+}
+
 
 // The most obvious problem with our recursive implementation is high execution divergence
 __device__
@@ -290,13 +311,19 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
     //      no -> push its four children onto stack
     // }
 
-    int node_idx = 0;;
+    int node_idx = 0;
     int depth = 0;
     float s = 0.f;
-    float distance = 0.f;
-    float dx = 0.f, dy = 0.f;
+    // float distance = 0.f;
+    // float dx = 0.f, dy = 0.f;
     float px = 0.f, py = 0.f;
-    float ax = 0.f, ay = 0.f;
+    // float ax = 0.f, ay = 0.f;
+
+    // register float2 tarObjPos = make_float2(leaf_node_posx[leaf_node], leaf_node_posy[leaf_node]);
+    // register float2 result = float2_zero();
+    register float2 acc;
+    // register GS_FLOAT s, d;
+
     volatile float *x_array, *y_array, *mass_array;
     while (stack_idx >= 0) {
         // pop
@@ -320,17 +347,21 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
         px = leaf_node_posx[leaf_node];
         py = leaf_node_posy[leaf_node];
         // if the target_node is a leaf node, simply calculate the force and return
-        dx = x_array[node_idx] - px;
-        dy = y_array[node_idx] - py;
+        // dx = x_array[node_idx] - px;
+        // dy = y_array[node_idx] - py;
 
-        distance = dx * dx + dy * dy + epssqd;
-        distance = rsqrtf(distance);
-        distance = mass_array[node_idx] * distance * distance;
+        float2 leafPos = make_float2(px, py);
+        float2 targetPos = make_float2(x_array[node_idx], y_array[node_idx]);
+        float2 dr = float2_sub(leafPos, targetPos);
+        GS_FLOAT distance = float2_length(dr);
+
+        // distance = dx * dx + dy * dy + epssqd;
+        // distance = rsqrtf(distance);
+        // distance = mass_array[node_idx] * distance * distance;
 
         if (((s / distance) < SD_TRESHOLD) || isleaf) {
             //add to ax and ay
-            ax += dx * distance;
-            ay += dy * distance;
+            acc = float2_add(acc, calculate_force(leafPos, targetPos, mass_array[node_idx]));
         } else {
             for (int k = 0; k < 4; k++) {
                 if (internal_node_child[4 * node_idx + k] != NULL_BODY) {
@@ -341,7 +372,7 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
         }
     }
     __syncthreads();
-    return make_float2(ax, ay);
+    return acc;
 }
 
 __global__
