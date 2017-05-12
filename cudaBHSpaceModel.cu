@@ -219,8 +219,7 @@ void SummarizationKernel()
 
     if (missing == 0) {
       // all children are ready, so store computed information
-      countd[k] = cnt;
-      // assert(countd[k] >= 0);
+      countd[k] = cnt;  // These counts make kernel 4 much faster
       float m = 1.0f / cm;
       internal_node_posx[k] = px * m;
       internal_node_posy[k] = py * m;
@@ -237,34 +236,26 @@ void SortKernel()
 {
   int i, k, child, inc, start;
 
-  // comment: stride, just like inc 
   inc = blockDim.x * gridDim.x;
   k = threadIdx.x + blockIdx.x * blockDim.x;
 
-  // iterate over all cells assigned to thread
   while (k <= internal_node_num) {
-    // comment: the startd is used to signify the boundary in the sortd array
-    // comment: it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
+    // it concurrently places the bodies into an array such that the bodies appear in the same order in the array as they would during an in-order traversal of the octree
     start = startd[k];
-    // comment: this is quite like kernel 3, if the start is still -1, it keeps polling until the start is ready
-    // comment: at the start, only root is able to compute because only its start is not -1 (it is 0)
-    // comment: start serves both purpose, one is for signify whether it can start, another is for signify the area it puts its elements
     if (start >= 0) {
-      // comment: traverse from left child to right child
       for (i = 0; i < 4; i++) {
-        // comment: iterate through the children of the cell
         child = internal_node_child[k*4+i];
         if (child >= nbodiesd) {
           // child is a cell
-          startd[child - nbodiesd] = start;  // set start ID of child
-          start += countd[child - nbodiesd];  // add #bodies in subtree
+          startd[child - nbodiesd] = start;
+          start += countd[child - nbodiesd];
         } else if (child >= 0) {
           // child is a body
-          sortd[start] = child;  // record body in 'sorted' array
+          sortd[start] = child;
           start++;
         }
       }
-      k += inc;  // move on to next cell
+      k += inc;
     }
     __syncthreads();  // throttle
   }
@@ -350,14 +341,17 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
 __global__
 void ForceCalculationKernel()
 {
-  // printf("entering ForceCalculationKernel\n");
-  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += blockDim.x * gridDim.x) {
-    // (target_node = nbodiesd) for signifying root node
-    float2 acceleration = CalculateForceOnLeafNode(i);
-    float acccx = acceleration.x;
-    float acccy = acceleration.y;
-    leaf_node_accx[i] = acccx;
-    leaf_node_accy[i] = acccy;
+  int inc = blockDim.x * gridDim.x;
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  volatile int k;  // actual point
+  float2 acceleration;
+  while (i < nbodiesd) {
+    k = sortd[i];
+    // k = i;
+    acceleration = CalculateForceOnLeafNode(i);
+    leaf_node_accx[k] = acceleration.x;
+    leaf_node_accy[k] = acceleration.y;
+    i += inc;
   }
 }
 
