@@ -24,17 +24,6 @@
 #define FACTOR5 5
 #define FACTOR6 3
 
-static bool first_time = true;
-static int blocks;
-static int nbodies;
-static float *mass, *posx, *posy, *velx, *vely;
-static float *massl, *posxl, *posyl, *velxl, *velyl;
-static int *countl;
-static float *leaf_node_accxl, *leaf_node_accyl;
-static int *internal_node_childl;
-static float *internal_node_massl, *internal_node_posxl, *internal_node_posyl;
-static float dtime, dthf, epssq, itolsq;
-
 
 // nbodiesd -> number of leaf nodes
 __constant__ int nbodiesd;
@@ -50,7 +39,7 @@ __constant__ volatile float *internal_node_mass;    // nbodiesd
 __constant__ volatile float *internal_node_posx;    // nbodiesd
 __constant__ volatile float *internal_node_posy;    // nbodiesd
 __device__ volatile float radiusd;
-__constant__ volatile int *countd;
+__constant__ volatile int *countd, *startd;
 
 
 __global__
@@ -220,6 +209,9 @@ void SummarizationKernel()
   }
 }
 
+
+
+
 // The most obvious problem with our recursive implementation is high execution divergence
 __device__
 float2 CalculateForceOnLeafNode(int leaf_node) {
@@ -378,9 +370,15 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
 #ifdef CONST_TIME
     dt = CONST_TIME;
 #endif
-if (first_time) {
-    printf("first time\n");
-    first_time = false;
+int blocks;
+int nbodies;
+float *mass, *posx, *posy, *velx, *vely;
+float *massl, *posxl, *posyl, *velxl, *velyl;
+int *countl, *startl;
+float *leaf_node_accxl, *leaf_node_accyl;
+int *internal_node_childl;
+float *internal_node_massl, *internal_node_posxl, *internal_node_posyl;
+float dtime, dthf, epssq, itolsq;
 
     blocks = 15; // number of multiprocessor, specific to K40m
     nbodies = this->objects.size();
@@ -427,6 +425,9 @@ if (first_time) {
     cudaMalloc((void **)&countl, sizeof(int) * (nbodies + 1));
     cudaMemcpyToSymbol(countd, &countl, sizeof(void *));
 
+    cudaMalloc((void **)&startl, sizeof(int) * (nbodies + 1));
+    cudaMemcpyToSymbol(startd, &startl, sizeof(void *));
+
     // allocate leaf node acceleration information
     cudaMalloc((void **)&leaf_node_accxl, sizeof(float) * (nbodies + 1));
     cudaMalloc((void **)&leaf_node_accyl, sizeof(float) * (nbodies + 1));
@@ -461,8 +462,6 @@ if (first_time) {
     cudaMemcpyToSymbol(epssqd, &epssq, sizeof(float));
     cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
 
-}
-
     InitializationKernel <<< 1, 1>>>();
     TreeBuildingKernel <<< blocks * FACTOR3, THREADS3>>>();
     SummarizationKernel <<< blocks * FACTOR4, THREADS4>>>();
@@ -485,7 +484,6 @@ if (first_time) {
 
     remove_objects_outside_bounds();
 
-#ifdef asdadasdasd
     free(mass);
     free(posx);
     free(posy);
@@ -497,13 +495,14 @@ if (first_time) {
     cudaFree(posyl);
     cudaFree(velxl);
     cudaFree(velyl);
+    cudaFree(startl);
+    cudaFree(countl);
     cudaFree(leaf_node_accxl);
     cudaFree(leaf_node_accyl);
     cudaFree(internal_node_childl);
     cudaFree(internal_node_massl);
     cudaFree(internal_node_posxl);
     cudaFree(internal_node_posyl);
-#endif
 }
 
 cudaBHSpaceModel::~cudaBHSpaceModel() {
