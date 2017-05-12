@@ -156,6 +156,12 @@ void SummarizationKernel()
         int child = internal_node_child[k*4+i];
         // comment: if this child is not null pointer (may be internal or leaf)
         if (child >= 0) {
+          if (i != j) {
+            // comment: 
+            // move children to front (needed later for speed)
+            internal_node_child[k*4+i] = -1;
+            internal_node_child[k*4+j] = child;
+          }
 	        cache[missing*THREADS3+threadIdx.x] = child;
 	        float m = 0.f;
           if (child >= nbodiesd) {
@@ -198,14 +204,6 @@ void SummarizationKernel()
           cm += m;
           if (child >= nbodiesd) {
             cnt += (countd[child - nbodiesd]);
-            // printf("index is %d\n", child - nbodiesd);
-            // printf("now XXXX is %d\n", countd[child - nbodiesd] - 1);
-            // if (countd[child - nbodiesd] == 0) {
-            //     printf("first child: %d\n", internal_node_child[(child - nbodiesd)*4]);
-            //     printf("second child: %d\n", internal_node_child[(child - nbodiesd)*4+1]);
-            //     printf("third child: %d\n", internal_node_child[(child - nbodiesd)*4+2]);
-            //     printf("forth child: %d\n", internal_node_child[(child - nbodiesd)*4+3]);
-            //   }
             assert(cnt >= 0);
             // it is a internal node
             px += internal_node_posx[child - nbodiesd] * m;
@@ -231,12 +229,10 @@ void SummarizationKernel()
       k -= inc;  // move on to next cell
     }
   }
-  __syncthreads();
 }
 
 
 __global__
-// __launch_bounds__(THREADS4, FACTOR4)
 void SortKernel()
 {
   int i, k, child, inc, start;
