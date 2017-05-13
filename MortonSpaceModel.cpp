@@ -61,6 +61,7 @@ MortonSpaceModel::update(GS_FLOAT dt) {
     PERF("remove_outside_objects = %.2f%%\n", remove_outside_objects/total_time*100);
     PERF("fill_objects = %.2f%%\n", fill_objects/total_time*100);
     PERF("generate_morton_tree = %.2f%%\n", generate_morton_tree/total_time*100);
+    PERF("total time:%.2f ms\n", total_time/1000000);
 }
 
 /**

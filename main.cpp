@@ -17,10 +17,10 @@
 #define SUCCESS 0
 #define FAILURE 1
 
-// #define ENABLE_SEQ_BARNES
-// #define ENABLE_SEQ_MORTON
+#define ENABLE_SEQ_BARNES
 #define ENABLE_CUDA_BARNES
-// #define ENABLE_CUDA_MORTON
+#define ENABLE_SEQ_MORTON
+#define ENABLE_CUDA_MORTON
 
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
@@ -46,19 +46,15 @@ int main(int argc, const char * argv[]) {
 #ifdef ENABLE_SEQ_BARNES
     SpaceModel *seqBarnesHutModel = new BHSpaceModel(config.model_bounds, controller->get_objects(), screen);
 #endif
-#ifdef ENABLE_SEQ_MORTON
-    SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
-#endif
 #ifdef ENABLE_CUDA_BARNES
     SpaceModel *cudaBarnesHutModel = new cudaBHSpaceModel(config.model_bounds, controller->get_objects(), screen);
+#endif
+#ifdef ENABLE_SEQ_MORTON
+    SpaceModel *seqMortonModel = new MortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
 #endif
 #ifdef ENABLE_CUDA_MORTON
     SpaceModel *cudaMortonModel = new cudaMortonSpaceModel(config.model_bounds, controller->get_objects(), screen);
 #endif
-    // SpaceModel *seqFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
-    // Perf *seqFMMPerf = new Perf(config.loop_times, "seqFMMPerf");
-    // SpaceModel *cudaFMMModel = new SpaceModel(config.model_bounds, controller->get_objects());
-    // Perf *cudaFMMPerf = new Perf(config.loop_times, "cudaFMMPerf");
    
 #ifdef ENABLE_SEQ_BARNES
     // seqBarnes
@@ -67,19 +63,19 @@ int main(int argc, const char * argv[]) {
     report->addReport(*seqBarnesPerf);
     printf("finish seqBH\n");
 #endif
-#ifdef ENABLE_SEQ_MORTON
-    // seqMorton
-    Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
-    execute_model(controller, seqMortonModel, seqMortonPerf); 
-    report->addReport(*seqMortonPerf);
-    printf("finish seqMorton\n");
-#endif
 #ifdef ENABLE_CUDA_BARNES
     // cudaBarnes
     Perf *cudaBHPerf = new Perf(config.loop_times, "cudaBarnes");
     execute_model(controller, cudaBarnesHutModel, cudaBHPerf);
     report->addReport(*cudaBHPerf);
     printf("finish cudaBH\n");
+#endif
+#ifdef ENABLE_SEQ_MORTON
+    // seqMorton
+    Perf *seqMortonPerf = new Perf(config.loop_times, "seqMorton");
+    execute_model(controller, seqMortonModel, seqMortonPerf); 
+    report->addReport(*seqMortonPerf);
+    printf("finish seqMorton\n");
 #endif
 #ifdef ENABLE_CUDA_MORTON
     // cudaMorton
@@ -88,8 +84,6 @@ int main(int argc, const char * argv[]) {
     report->addReport(*cudaMortonPerf);
     printf("finish cudaMorton\n");
 #endif
-    // seqFMM
-    // cudaFMM
     report->showReport();
     // close gl after all things done
     gl_close();
@@ -162,9 +156,10 @@ SimulationConfig get_config(int argc, const char *argv[]) {
 
     config.loop_times = atoi(argv[1]);
     config.galaxies_n = atoi(argv[2]);
-    printf("galaxies_n = %zu\n", config.galaxies_n);
     config.objects_n = atoi(argv[3]);
     config.galaxy_size = atoi(argv[4]);
+    printf("loop_times:%zu number_of_galaxies:%zu objects_per_galaxy:%zu galaxy_size:%f\n", 
+            config.loop_times, config.galaxies_n, config.objects_n, config.galaxy_size);
     return config;
 }
 

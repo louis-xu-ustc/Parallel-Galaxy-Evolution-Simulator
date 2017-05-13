@@ -61,6 +61,7 @@ class cudaMortonSpaceModel: public SpaceModel {
         void fillObjectsToCuda(std::vector<MortonTreeObject*> &objects);
         void fillCells(std::vector<MortonCell*> &cells);
         void fillObjectsFromCuda(std::vector<Object> &objects);
+        void correctnessCheck(GS_FLOAT dt);
 
         virtual void update(GS_FLOAT dt) override;
 };

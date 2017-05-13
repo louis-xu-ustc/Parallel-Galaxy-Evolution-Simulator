@@ -152,7 +152,7 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
 #endif
     ENTER();
 
-    struct timespec one, two, three, four, five;
+    struct timespec one, two, three, four, five, six;
     clock_gettime(CLOCK_REALTIME, &one);
     int numCells = this->tree->getCells().size();
     alloc(numObjects, numCells);
@@ -182,16 +182,32 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
     dealloc();
     clock_gettime(CLOCK_REALTIME, &four);
 
-#if 0
-    this->tree->applyToObjects(dt);
-    this->objects.clear();
-    for (size_t i = 0; i < objs.size(); i++) {
-        this->objects.push_back(*objs[i]);
-        this->objects[i].update_position(dt);
-    }
-#endif
+    remove_objects_outside_bounds();
+    this->numObjects = this->objects.size();
 
-#ifdef CORRECTNESS_CHECK
+    delete this->tree;
+    this->tree = new MortonTree(this->bounds);
+    this->tree->fillMortonTreeObjects(this->objects);
+    clock_gettime(CLOCK_REALTIME, &five);
+    this->tree->generateMortonTree();
+    clock_gettime(CLOCK_REALTIME, &six);
+
+    GS_DOUBLE memory_overhead = get_timediff(two, one) + get_timediff(four, three);
+    GS_DOUBLE cuda_calculation = get_timediff(three, two);
+    GS_DOUBLE morton_code_sort = get_timediff(five, four);
+    GS_DOUBLE morton_tree_generation = get_timediff(six, five);
+    GS_DOUBLE total_time = memory_overhead + cuda_calculation + morton_tree_generation + morton_code_sort;
+    PERF("memorycpy overhead = %.2f%%\n", memory_overhead/total_time*100);
+    PERF("cuda calculation  = %.2f%%\n", cuda_calculation/total_time*100);
+    PERF("MortonCode Form & Sorting  = %.2f%%\n", morton_code_sort/total_time*100);
+    PERF("morton tree generation  = %.2f%%\n", morton_tree_generation/total_time*100);
+    PERF("total time:%.2f ms\n", total_time/1000000);
+
+    LEAVE();
+}
+
+void
+cudaMortonSpaceModel::correctnessCheck(GS_FLOAT dt) {
     this->tree->applyToObjects(dt);
     std::vector<MortonTreeObject*> comp_objs = this->tree->getObjects();
     for (int i = 0; i < comp_objs.size(); i++) {
@@ -214,26 +230,6 @@ cudaMortonSpaceModel::update(GS_FLOAT dt) {
             printf("galaxy render error!\n");
         }
     }
-#endif
-
-    remove_objects_outside_bounds();
-    this->numObjects = this->objects.size();
-
-    delete this->tree;
-    this->tree = new MortonTree(this->bounds);
-    this->tree->fillMortonTreeObjects(this->objects);
-    this->tree->generateMortonTree();
-    clock_gettime(CLOCK_REALTIME, &five);
-
-    GS_DOUBLE memory_overhead = get_timediff(two, one) + get_timediff(four, three);
-    GS_DOUBLE cuda_calculation = get_timediff(three, two);
-    GS_DOUBLE morton_tree_generation = get_timediff(five, four);
-    GS_DOUBLE total_time = memory_overhead + cuda_calculation + morton_tree_generation;
-    PERF("memorycpy overhead = %.2f%%\n", memory_overhead/total_time*100);
-    PERF("cuda calculation  = %.2f%%\n", cuda_calculation/total_time*100);
-    PERF("morton tree generation  = %.2f%%\n", morton_tree_generation/total_time*100);
-
-    LEAVE();
 }
 
 void
