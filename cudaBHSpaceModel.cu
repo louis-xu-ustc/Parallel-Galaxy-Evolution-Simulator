@@ -536,7 +536,7 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     SortKernel <<< blocks *8, 256>>>();
     // printf("before ForceCalculationKernel\n");
     ForceCalculationKernel <<< blocks *8, 256>>>();
-    IntegrationKernel <<< blocks *FACTOR6, 256>>>();
+    IntegrationKernel <<< blocks *8, 256>>>();
 
     // we only need to copy these four back into host
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);
