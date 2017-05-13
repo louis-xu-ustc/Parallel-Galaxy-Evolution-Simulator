@@ -3,7 +3,6 @@
 #include <cmath>
 #include <assert.h>
 #include "cuda.h"
-#include "cutil_math.h"
 #include "cudaBHSpaceModel.h"
 #include "build_config.h"
 
@@ -12,19 +11,6 @@
 #define LOCK (-2)
 
 //#define printf(...)
-
-#define THREADS2 1024
-#define THREADS3 1024
-#define THREADS4 256
-#define THREADS5 256
-#define THREADS6 512
-
-#define FACTOR2 1
-#define FACTOR3 1
-#define FACTOR4 1
-#define FACTOR5 5
-#define FACTOR6 3
-
 
 // nbodiesd -> number of leaf nodes
 __constant__ int nbodiesd;
@@ -60,17 +46,31 @@ void InitializationKernel() {
 
 __global__
 void TreeBuildingKernel() {
-    float radius = radiusd;
-    float rootx = internal_node_posx[0];
-    float rooty = internal_node_posy[0];
-    int inc = blockDim.x * gridDim.x;
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    // totally 16 registers used
+    register float radius = radiusd;
+    register float rootx = internal_node_posx[0];
+    register float rooty = internal_node_posy[0];
+    register int inc = blockDim.x * gridDim.x;
+    register int i = threadIdx.x + blockIdx.x * blockDim.x;
+    register float px = 0.f;
+    register float py = 0.f;
+    register float r = 0.f;
+    register int n = 0;  // root
+    register int j = 0;
+    register int locked = 0;
+    register int patch = 999999999;
+    register int internal_node_idx;
+    register int k = 0;
+    register float x;
+    register float y;
+
+
     while (i < nbodiesd) {
-        float px = leaf_node_posx[i];
-        float py = leaf_node_posy[i];
-        int n = 0;  // root
-        float r = radius;
-        int j = 0;
+        px = leaf_node_posx[i];
+        py = leaf_node_posy[i];
+        n = 0;  // root
+        r = radius;
+        j = 0;
         if (rootx < px) j = 1;
         if (rooty < py) j += 2;
         int child = internal_node_child[n * 4 + j];
@@ -84,24 +84,24 @@ void TreeBuildingKernel() {
         }
 
         if (child != LOCK) {
-            int locked = n * 4 + j;
+            locked = n * 4 + j;
             if (child == atomicCAS((int *)&internal_node_child[locked], child, LOCK)) {
                 if (child == NULL_BODY) { // if it is a null pointer, just insert the new body
                     internal_node_child[locked] = i;
                 } else {  // there already is a body in this position
-                    int patch = 999999999;
+                    patch = 999999999;
                     do {
-                        int internal_node_idx = atomicAdd((int *)&internal_node_num, 1) + 1;
+                        internal_node_idx = atomicAdd((int *)&internal_node_num, 1) + 1;
                         patch = min(patch, internal_node_idx);
 
-                        float x = (j & 1) * r;
-                        float y = ((j >> 1) & 1) * r;
+                        x = (j & 1) * r;
+                        y = ((j >> 1) & 1) * r;
                         r *= 0.5f;
                         internal_node_mass[internal_node_idx] = -1.0f;
                         startd[internal_node_idx] = -1;
                         x = internal_node_posx[internal_node_idx] = internal_node_posx[n] - r + x;
                         y = internal_node_posy[internal_node_idx] = internal_node_posy[n] - r + y;
-                        for (int k = 0; k < 4; k++) {
+                        for (k = 0; k < 4; k++) {
                             internal_node_child[internal_node_idx * 4 + k] = NULL_BODY;
                         }
                         if (patch != internal_node_idx) {
@@ -132,26 +132,33 @@ void TreeBuildingKernel() {
 
 __global__
 void SummarizationKernel() {
-    int last_internal_node = internal_node_num;
-    int inc = blockDim.x * gridDim.x;
-    __shared__ volatile int cache[THREADS3 * 4];
-    int j;
-    int cnt;
+    // totally 12 registers used
+    register int last_internal_node = internal_node_num;
+    register int inc = blockDim.x * gridDim.x;
+    __shared__ volatile int cache[256 * 4];
+    register int j;
+    register int cnt;
+    register float cm = 0.0f;
+    register float px = 0.0f;
+    register float py = 0.0f;
+    register float m;
+    register int i;
+    register int child;
 
     // bottom-up
-    int k = last_internal_node - (threadIdx.x + blockIdx.x * blockDim.x);
-    int missing = 0;
+    register int k = last_internal_node - (threadIdx.x + blockIdx.x * blockDim.x);
+    register int missing = 0;
+
     while (k >= 0) {
-        float cm = 0.0f;
-        float px = 0.0f;
-        float py = 0.0f;
-        float m;
+        cm = 0.0f;
+        px = 0.0f;
+        py = 0.0f;
         cnt = 0;
         j = 0;
 
         if (missing == 0) {
-            for (int i = 0; i < 4; i++) {
-                int child = internal_node_child[k * 4 + i];
+            for (i = 0; i < 4; i++) {
+                child = internal_node_child[k * 4 + i];
                 // comment: if this child is not null pointer (may be internal or leaf)
                 if (child >= 0) {
                     if (i != j) {
@@ -160,8 +167,8 @@ void SummarizationKernel() {
                         internal_node_child[k * 4 + i] = -1;
                         internal_node_child[k * 4 + j] = child;
                     }
-                    cache[missing * THREADS3 + threadIdx.x] = child;
-                    float m = 0.f;
+                    cache[missing * 256 + threadIdx.x] = child;
+                    m = 0.f;
                     if (child >= nbodiesd) {
                         // it is a internal node
                         m = internal_node_mass[child - nbodiesd];
@@ -195,7 +202,7 @@ void SummarizationKernel() {
         if (missing != 0) {
             do {
                 // poll missing children
-                int child = cache[(missing - 1) * THREADS3 + threadIdx.x];
+                child = cache[(missing - 1) * 256 + threadIdx.x];
                 m = internal_node_mass[child - nbodiesd];
                 if (m >= 0.f) {
                     missing--;
@@ -218,7 +225,7 @@ void SummarizationKernel() {
         if (missing == 0) {
             // all children are ready, so store computed information
             countd[k] = cnt;  // These counts make kernel 4 much faster
-            float m = 1.0f / cm;
+            m = 1.0f / cm;
             internal_node_posx[k] = px * m;
             internal_node_posy[k] = py * m;
             __threadfence();  // make sure data are visible before setting mass
@@ -231,7 +238,8 @@ void SummarizationKernel() {
 
 __global__
 void SortKernel() {
-    int i, k, child, inc, start;
+    // totally 5 registers used
+    register int i, k, child, inc, start;
 
     inc = blockDim.x * gridDim.x;
     k = threadIdx.x + blockIdx.x * blockDim.x;
@@ -258,13 +266,6 @@ void SortKernel() {
         __syncthreads();  // throttle
     }
     __syncthreads();
-
- //    if ((threadIdx.x + blockIdx.x * blockDim.x) == 0) {
-	//     for (int i = 0; i < nbodiesd; ++i)
-	//     {
-	//     	printf("sortd[%d] = %d\n", i, sortd[i]);
-	//     }
-	// }	
 }
 
 // The most obvious problem with our recursive implementation is high execution divergence
@@ -276,8 +277,8 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
 
     // initialize a stack and push_back root
     // there is no null pointer in the stack (check before push_back)
-    int stack[1024];   // store the index of internal nodes and leaf nodes
-    int stack_idx = -1;
+    register int stack[1024];   // store the index of internal nodes and leaf nodes
+    register int stack_idx = -1;
     // push_back
     stack[++stack_idx] = 0;  // depth; for calculating s
     stack[++stack_idx] = nbodiesd;
@@ -290,19 +291,22 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
     //      no -> push its four children onto stack
     // }
 
-    int node_idx = 0;;
-    int depth = 0;
-    float s = 0.f;
-    float distance = 0.f;
-    float dx = 0.f, dy = 0.f;
-    float px = 0.f, py = 0.f;
-    float ax = 0.f, ay = 0.f;
+    register int node_idx = 0;;
+    register int depth = 0;
+    register float s = 0.f;
+    register float distance = 0.f;
+    register float dx = 0.f, dy = 0.f;
+    register float px = 0.f, py = 0.f;
+    register float ax = 0.f, ay = 0.f;
     volatile float *x_array, *y_array, *mass_array;
+    register bool isleaf;
+    register int k;
+
     while (stack_idx >= 0) {
         // pop
         node_idx = stack[stack_idx--];
         depth = stack[stack_idx--];
-        bool isleaf = false;
+        isleaf = false;
 
         if (node_idx >= 0 && node_idx < nbodiesd) {
             x_array = leaf_node_posx;
@@ -332,7 +336,7 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
             ax += dx * distance;
             ay += dy * distance;
         } else {
-            for (int k = 0; k < 4; k++) {
+            for (k = 0; k < 4; k++) {
                 if (internal_node_child[4 * node_idx + k] != NULL_BODY) {
                     stack[++stack_idx] = depth + 1;   // push_back depth first
                     stack[++stack_idx] = internal_node_child[4 * node_idx + k];
@@ -346,10 +350,12 @@ float2 CalculateForceOnLeafNode(int leaf_node) {
 
 __global__
 void ForceCalculationKernel() {
-    int inc = blockDim.x * gridDim.x;
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    volatile int k;  // actual point
-    float2 acceleration;
+    // totally 15 registers used
+    register int inc = blockDim.x * gridDim.x;
+    register int i = threadIdx.x + blockIdx.x * blockDim.x;
+    register int k;  // actual point
+    register float2 acceleration;
+
     while (i < nbodiesd) {
         k = sortd[i];
         // k = i;
@@ -363,6 +369,7 @@ void ForceCalculationKernel() {
 
 __global__
 void IntegrationKernel() {
+    // totally 6 registers used
     register int i, inc;
     register float dvelx, dvely;
     register float velhx, velhy;
@@ -524,12 +531,12 @@ cudaBHSpaceModel::update(GS_FLOAT dt) {
     cudaMemcpyToSymbol(itolsqd, &itolsq, sizeof(float));
 
     InitializationKernel <<< 1, 1>>>();
-    TreeBuildingKernel <<< blocks *FACTOR2, THREADS2>>>();
-    SummarizationKernel <<< blocks *FACTOR3, THREADS3>>>();
-    SortKernel <<< blocks *FACTOR4, THREADS4>>>();
+    TreeBuildingKernel <<< blocks *8, 256>>>();
+    SummarizationKernel <<< blocks *8, 256>>>();
+    SortKernel <<< blocks *8, 256>>>();
     // printf("before ForceCalculationKernel\n");
-    ForceCalculationKernel <<< blocks *FACTOR5, THREADS5>>>();
-    IntegrationKernel <<< blocks *FACTOR6, THREADS6>>>();
+    ForceCalculationKernel <<< blocks *8, 256>>>();
+    IntegrationKernel <<< blocks *FACTOR6, 256>>>();
 
     // we only need to copy these four back into host
     cudaMemcpy(posx, posxl, sizeof(float) * nbodies, cudaMemcpyDeviceToHost);

@@ -17,10 +17,10 @@
 #define SUCCESS 0
 #define FAILURE 1
 
-#define ENABLE_SEQ_BARNES
-#define ENABLE_SEQ_MORTON
-//#define ENABLE_CUDA_BARNES
-#define ENABLE_CUDA_MORTON
+// #define ENABLE_SEQ_BARNES
+// #define ENABLE_SEQ_MORTON
+#define ENABLE_CUDA_BARNES
+// #define ENABLE_CUDA_MORTON
 
 static int gl_init(int width, int height, const char *title);
 static void gl_close(void);
