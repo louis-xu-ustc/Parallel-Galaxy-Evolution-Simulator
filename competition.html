@@ -82,57 +82,66 @@
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain'
                  src="img/Runtime_increase_of_number_galaxy.png"/><br/> <br/>
-            <strong>Figure 4. performance comparison of the four versions</strong>
+            <strong>Figure 4. Running time (ms/iteration) as the increase of number of galaxy</strong>
         </div>
-        <p>
-            <strong>Figure 4</strong> depicts performance of the two algorithms with sequential and parallel version.
-        </p>
 
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain'
                  src="img/Speedup_increase_of_galaxy_num.png"/><br/> <br/>
-            <strong>Figure 5. performance comparison of the four versions</strong>
+            <strong>Figure 5. Speedup of CUDA version compared to the corresponding sequential version as the increase
+                of number of galaxy</strong>
         </div>
         <p>
-            <strong>Figure 5</strong> depicts performance of the two algorithms with sequential and parallel version.
-        </p>
-
-        <div align="center">
-            <img style='height: 80%; width: 80%; object-fit: contain'
-                 src="img/Runtime_increase_of_galaxy_size.png"/><br/> <br/>
-            <strong>Figure 6. performance comparison of the four versions</strong>
-        </div>
-        <p>
-            <strong>Figure 6</strong> depicts performance of the two algorithms with sequential and parallel version.
-        </p>
-
-        <div align="center">
-            <img style='height: 80%; width: 80%; object-fit: contain'
-                 src="img/Speedup_increase_of_galaxy_size.png"/><br/> <br/>
-            <strong>Figure 7. performance comparison of the four versions</strong>
-        </div>
-        <p>
-            <strong>Figure 7</strong> depicts performance of the two algorithms with sequential and parallel version.
+            <strong>Figure 4 & 5</strong> show that as the increase of galaxy, the whole computation
+            increases since there are more particles (objects) for computation, and the running time of sequential
+            version increases. However, the running time of CUDA version doesn’t increase too much. Also, from Figure 6,
+            it’s clear that the speedup still increases as the increase of galaxy. The reason we identified is that the
+            the program still doesn’t achieve the peak of computing resource with latedays.
         </p>
 
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain'
                  src="img/Runtime_increase_of_objects_per_galaxy.png"/><br/> <br/>
-            <strong>Figure 8. performance comparison of the four versions</strong>
+            <strong>Figure 6. Running time (ms/iteration) as increase of objects per galaxy
+            </strong>
         </div>
-        <p>
-            <strong>Figure 8</strong> depicts performance of the two algorithms with sequential and parallel version.
-        </p>
-
 
         <div align="center">
             <img style='height: 80%; width: 80%; object-fit: contain'
                  src="img/Speedup_increase_of_objects_per_galaxy.png"/><br/> <br/>
-            <strong>Figure 8. performance comparison of the four versions</strong>
+            <strong>Figure 7. Speedup of CUDA version compared to corresponding sequential version as the increase of
+                objects per galaxy</strong>
+        </div>
+
+        <p>
+            <strong>Figure 6 & 7</strong> Figure 6 & 7 shows the running time and speedup change as the increase of
+            objects per galaxy. One interesting observation for Figure 8 is that when objects per galaxy increase, the
+            speedup will experience a descend at the point of 800. For Morton Code, the reason is that since 64 bits
+            level mask (8 bytes) only supports 32 layers of iterations because it will right shift 2 bits in each
+            iteration. So, before the max length is reached, the bottleneck is in the sequential tree generation. And
+            increasing objects need to have more iterations, so the speedup will be impacted. And after that point, the
+            speedup begins to increase again, since the depth of the tree keeps to the max value allowed.
+        </p>
+
+        <div align="center">
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Runtime_increase_of_galaxy_size.png"/><br/> <br/>
+            <strong>Figure 8. Running time (ms/iteration) as increase of galaxy size
+            </strong>
+        </div>
+        <div align="center">
+            <img style='height: 80%; width: 80%; object-fit: contain'
+                 src="img/Speedup_increase_of_galaxy_size.png"/><br/> <br/>
+            <strong>Figure 9. Speedup of CUDA version compared to the corresponding sequential version as the increase
+                of galaxy size</strong>
         </div>
         <p>
-            <strong>Figure 8</strong> depicts performance of the two algorithms with sequential and parallel version.
+            <strong> Figure 8 & 9</strong> show the running time and speedup of our implementation as the increase of
+            galaxy size.
+            Basically, the performance is more stable compared with the other two parameters.
         </p>
+
+
     </ul>
     <h3><b>Summary of the Expected Show</b></h3>
     <p>
